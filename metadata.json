@@ -1,0 +1,5 @@
+{
+  "name": "Campestre",
+  "description": "Sistema de gestão agroindustrial para controle de engorda bovina em semi-confinamento, baseado em arquitetura por eventos.",
+  "requestFramePermissions": []
+}
