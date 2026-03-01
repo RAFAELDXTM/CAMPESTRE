@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
   app.use(express.json());
 
