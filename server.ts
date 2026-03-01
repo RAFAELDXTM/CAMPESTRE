@@ -2,6 +2,7 @@ import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
+import path from 'path';
 
 async function startServer() {
   const app = express();
@@ -62,6 +63,11 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     app.use(express.static('dist'));
+    
+    // Rota curinga para o React Router funcionar corretamente em produção
+    app.get('*', (req, res) => {
+      res.sendFile(path.resolve('dist/index.html'));
+    });
   }
 
   app.listen(PORT, '0.0.0.0', () => {
