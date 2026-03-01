@@ -1,0 +1,16 @@
+steps:
+  # Executa o deploy no Cloud Run usando o código-fonte da raiz (.)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gcloud run deploy campestre \
+          --quiet \
+          --source . \
+          --region=southamerica-east1 \
+          --allow-unauthenticated \
+          --set-build-env-vars VITE_SUPABASE_URL=${_VITE_SUPABASE_URL},VITE_SUPABASE_ANON_KEY=${_VITE_SUPABASE_ANON_KEY} \
+          --set-env-vars VITE_SUPABASE_URL=${_VITE_SUPABASE_URL},VITE_SUPABASE_ANON_KEY=${_VITE_SUPABASE_ANON_KEY}
+
+timeout: '1200s'
