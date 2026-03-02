@@ -1,6 +1,6 @@
-import React, {  useState  } from 'react';
+import React, { useState } from 'react';
 import { useAppStore } from '../store';
-import { Plus, SplitSquareHorizontal, Skull } from 'lucide-react';
+import { Plus, SplitSquareHorizontal, Skull, Eye, Trash2, X } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function Lotes() {
@@ -8,6 +8,9 @@ export default function Lotes() {
   const [isCreating, setIsCreating] = useState(false);
   const [isSubdividing, setIsSubdividing] = useState(false);
   const [isMortalidade, setIsMortalidade] = useState(false);
+  
+  // Estado para controlar o Modal de Detalhes
+  const [loteDetalhesId, setLoteDetalhesId] = useState<string | null>(null);
 
   // Form states
   const [loteId, setLoteId] = useState('');
@@ -63,6 +66,21 @@ export default function Lotes() {
     resetForms();
   };
 
+  // Função para excluir lote
+  const handleDelete = async (id: string) => {
+    const confirmDelete = window.confirm(`Tem certeza que deseja excluir o lote ${id}? Esta ação não pode ser desfeita e removerá o lote do painel.`);
+    
+    if (confirmDelete) {
+      await addEvent('LOTE_EXCLUIDO', {
+        loteId: id
+      });
+      // Se o lote excluído for o que está aberto no modal, fecha o modal
+      if (loteDetalhesId === id) {
+        setLoteDetalhesId(null);
+      }
+    }
+  };
+
   const resetForms = () => {
     setLoteId('');
     setCabecas('');
@@ -77,29 +95,30 @@ export default function Lotes() {
   };
 
   const lotes = (Object.values(state.lotes) as any[]);
+  const loteDetalhes = loteDetalhesId ? state.lotes[loteDetalhesId] : null;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-2xl font-bold text-slate-900">Gestão de Lotes</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setIsCreating(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium text-sm"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium text-sm transition-colors"
           >
             <Plus className="w-4 h-4" />
             Novo Lote
           </button>
           <button
             onClick={() => setIsSubdividing(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-medium text-sm"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-medium text-sm transition-colors"
           >
             <SplitSquareHorizontal className="w-4 h-4" />
             Subdividir
           </button>
           <button
             onClick={() => setIsMortalidade(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 font-medium text-sm"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 font-medium text-sm transition-colors"
           >
             <Skull className="w-4 h-4" />
             Mortalidade
@@ -109,35 +128,35 @@ export default function Lotes() {
 
       {isCreating && (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <h2 className="text-lg font-semibold mb-4">Criar Novo Lote</h2>
+          <h2 className="text-lg font-semibold mb-4 text-emerald-800">Criar Novo Lote</h2>
           <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">ID do Lote</label>
-              <input required type="text" value={loteId} onChange={e => setLoteId(e.target.value)} className="w-full p-2 border rounded-lg" />
+              <input required type="text" value={loteId} onChange={e => setLoteId(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Data de Entrada</label>
-              <input required type="date" value={dataEntrada} onChange={e => setDataEntrada(e.target.value)} className="w-full p-2 border rounded-lg" />
+              <input required type="date" value={dataEntrada} onChange={e => setDataEntrada(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Número de Cabeças</label>
-              <input required type="number" min="1" value={cabecas} onChange={e => setCabecas(e.target.value)} className="w-full p-2 border rounded-lg" />
+              <input required type="number" min="1" value={cabecas} onChange={e => setCabecas(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Peso Médio (kg)</label>
-              <input required type="number" min="0" step="0.1" value={pesoMedio} onChange={e => setPesoMedio(e.target.value)} className="w-full p-2 border rounded-lg" />
+              <input required type="number" min="0" step="0.1" value={pesoMedio} onChange={e => setPesoMedio(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Preço Compra (R$/@)</label>
-              <input required type="number" min="0" step="0.01" value={precoArroba} onChange={e => setPrecoArroba(e.target.value)} className="w-full p-2 border rounded-lg" />
+              <input required type="number" min="0" step="0.01" value={precoArroba} onChange={e => setPrecoArroba(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
             </div>
             <div className="md:col-span-2 lg:col-span-3">
               <label className="block text-sm font-medium text-slate-700 mb-1">Observação</label>
-              <input type="text" value={observacao} onChange={e => setObservacao(e.target.value)} className="w-full p-2 border rounded-lg" />
+              <input type="text" value={observacao} onChange={e => setObservacao(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
             </div>
-            <div className="md:col-span-2 lg:col-span-3 flex justify-end gap-2 mt-2">
-              <button type="button" onClick={() => setIsCreating(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
-              <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Salvar</button>
+            <div className="md:col-span-2 lg:col-span-3 flex justify-end gap-2 mt-2 pt-4 border-t border-slate-100">
+              <button type="button" onClick={() => setIsCreating(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors font-medium">Cancelar</button>
+              <button type="submit" className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium">Salvar Lote</button>
             </div>
           </form>
         </div>
@@ -145,11 +164,11 @@ export default function Lotes() {
 
       {isSubdividing && (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <h2 className="text-lg font-semibold mb-4">Subdividir Lote</h2>
-          <form onSubmit={handleSubdivide} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <h2 className="text-lg font-semibold mb-4 text-slate-800">Subdividir Lote</h2>
+          <form onSubmit={handleSubdivide} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Lote Origem</label>
-              <select required value={loteOrigemId} onChange={e => setLoteOrigemId(e.target.value)} className="w-full p-2 border rounded-lg">
+              <select required value={loteOrigemId} onChange={e => setLoteOrigemId(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
                 <option value="">Selecione...</option>
                 {lotes.filter(l => l.status === 'ATIVO').map(l => (
                   <option key={l.id} value={l.id}>{l.id} ({l.cabecasAtuais} cbç)</option>
@@ -158,27 +177,30 @@ export default function Lotes() {
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Novo ID do Lote</label>
-              <input required type="text" value={loteNovoId} onChange={e => setLoteNovoId(e.target.value)} className="w-full p-2 border rounded-lg" />
+              <input required type="text" value={loteNovoId} onChange={e => setLoteNovoId(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Cabeças Transferidas</label>
-              <input required type="number" min="1" max={state.lotes[loteOrigemId]?.cabecasAtuais || 1} value={cabecasTransferidas} onChange={e => setCabecasTransferidas(e.target.value)} className="w-full p-2 border rounded-lg" />
+              <input required type="number" min="1" max={state.lotes[loteOrigemId]?.cabecasAtuais || 1} value={cabecasTransferidas} onChange={e => setCabecasTransferidas(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
             </div>
-            <div className="md:col-span-2 flex justify-end gap-2 mt-2">
-              <button type="button" onClick={() => setIsSubdividing(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
-              <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Salvar</button>
+            <div className="md:col-span-2 lg:col-span-3 flex justify-end gap-2 mt-2 pt-4 border-t border-slate-100">
+              <button type="button" onClick={() => setIsSubdividing(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors font-medium">Cancelar</button>
+              <button type="submit" className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium">Salvar Subdivisão</button>
             </div>
           </form>
         </div>
       )}
 
       {isMortalidade && (
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <h2 className="text-lg font-semibold mb-4 text-red-700">Registrar Mortalidade</h2>
+        <div className="bg-red-50 p-6 rounded-xl shadow-sm border border-red-100">
+          <h2 className="text-lg font-semibold mb-4 text-red-800 flex items-center gap-2">
+            <Skull className="w-5 h-5" />
+            Registrar Mortalidade
+          </h2>
           <form onSubmit={handleMortalidade} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Lote</label>
-              <select required value={mortalidadeLoteId} onChange={e => setMortalidadeLoteId(e.target.value)} className="w-full p-2 border rounded-lg">
+              <label className="block text-sm font-medium text-red-900 mb-1">Lote</label>
+              <select required value={mortalidadeLoteId} onChange={e => setMortalidadeLoteId(e.target.value)} className="w-full p-2 border border-red-200 rounded-lg focus:ring-2 focus:ring-red-500 bg-white">
                 <option value="">Selecione...</option>
                 {lotes.filter(l => l.status === 'ATIVO').map(l => (
                   <option key={l.id} value={l.id}>{l.id} ({l.cabecasAtuais} cbç)</option>
@@ -186,12 +208,12 @@ export default function Lotes() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Número de Cabeças</label>
-              <input required type="number" min="1" max={state.lotes[mortalidadeLoteId]?.cabecasAtuais || 1} value={mortalidadeCabecas} onChange={e => setMortalidadeCabecas(e.target.value)} className="w-full p-2 border rounded-lg" />
+              <label className="block text-sm font-medium text-red-900 mb-1">Número de Cabeças</label>
+              <input required type="number" min="1" max={state.lotes[mortalidadeLoteId]?.cabecasAtuais || 1} value={mortalidadeCabecas} onChange={e => setMortalidadeCabecas(e.target.value)} className="w-full p-2 border border-red-200 rounded-lg focus:ring-2 focus:ring-red-500 bg-white" />
             </div>
-            <div className="md:col-span-2 flex justify-end gap-2 mt-2">
-              <button type="button" onClick={() => setIsMortalidade(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
-              <button type="submit" className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Registrar</button>
+            <div className="md:col-span-2 flex justify-end gap-2 mt-2 pt-4 border-t border-red-200/50">
+              <button type="button" onClick={() => setIsMortalidade(false)} className="px-4 py-2 text-red-700 hover:bg-red-100 rounded-lg transition-colors font-medium">Cancelar</button>
+              <button type="submit" className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium">Registrar Perda</button>
             </div>
           </form>
         </div>
@@ -204,34 +226,66 @@ export default function Lotes() {
               <tr>
                 <th className="px-6 py-4 font-medium">Lote</th>
                 <th className="px-6 py-4 font-medium">Status</th>
-                <th className="px-6 py-4 font-medium text-right">Cabeças Atuais</th>
+                <th className="px-6 py-4 font-medium text-right">Cabeças</th>
                 <th className="px-6 py-4 font-medium text-right">Peso Entrada</th>
                 <th className="px-6 py-4 font-medium text-right">Preço/@</th>
                 <th className="px-6 py-4 font-medium">Data Entrada</th>
+                <th className="px-6 py-4 font-medium text-center">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {lotes.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
-                    Nenhum lote registrado.
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4 border border-slate-100">
+                        <Plus className="w-8 h-8 text-slate-300" />
+                      </div>
+                      <p className="text-base font-medium text-slate-600">Nenhum lote registrado</p>
+                      <p className="text-sm mt-1">Clique em "Novo Lote" para começar.</p>
+                    </div>
                   </td>
                 </tr>
               ) : (
                 lotes.map((lote) => (
-                  <tr key={lote.id} className="hover:bg-slate-50">
+                  <tr key={lote.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 font-medium text-slate-900">{lote.id}</td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        lote.status === 'ATIVO' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold ${
+                        lote.status === 'ATIVO' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
                       }`}>
                         {lote.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">{lote.cabecasAtuais}</td>
-                    <td className="px-6 py-4 text-right">{lote.pesoMedioEntrada} kg</td>
-                    <td className="px-6 py-4 text-right">R$ {lote.precoCompraArroba.toFixed(2)}</td>
-                    <td className="px-6 py-4">{format(new Date(lote.dataEntrada), 'dd/MM/yyyy')}</td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex flex-col items-end">
+                        <span className="font-medium">{lote.cabecasAtuais}</span>
+                        {lote.cabecasAtuais !== lote.cabecasIniciais && (
+                          <span className="text-xs text-slate-400">de {lote.cabecasIniciais} originais</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right font-mono text-slate-600">{lote.pesoMedioEntrada} kg</td>
+                    <td className="px-6 py-4 text-right font-mono text-emerald-600">R$ {lote.precoCompraArroba.toFixed(2)}</td>
+                    <td className="px-6 py-4 text-slate-600">{format(new Date(lote.dataEntrada), 'dd/MM/yyyy')}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-center gap-2">
+                        <button 
+                          onClick={() => setLoteDetalhesId(lote.id)}
+                          className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+                          title="Detalhes do Lote"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(lote.id)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                          title="Excluir Lote"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -239,6 +293,137 @@ export default function Lotes() {
           </table>
         </div>
       </div>
+
+      {/* Modal de Detalhes do Lote */}
+      {loteDetalhes && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-slate-50/50">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                  Lote: {loteDetalhes.id}
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                    loteDetalhes.status === 'ATIVO' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
+                  }`}>
+                    {loteDetalhes.status}
+                  </span>
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  Entrada: {format(new Date(loteDetalhes.dataEntrada), 'dd/MM/yyyy')}
+                </p>
+              </div>
+              <button 
+                onClick={() => setLoteDetalhesId(null)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                
+                {/* Bloco: Animais */}
+                <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100/50">
+                  <h4 className="text-sm font-semibold text-indigo-900 mb-3 uppercase tracking-wider">Métricas de Animais</h4>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between items-center border-b border-indigo-100/50 pb-2">
+                      <span className="text-indigo-700/80">Cabeças Iniciais</span>
+                      <span className="font-medium text-indigo-950">{loteDetalhes.cabecasIniciais}</span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-indigo-100/50 pb-2">
+                      <span className="text-indigo-700/80">Cabeças Atuais</span>
+                      <span className="font-bold text-indigo-950">{loteDetalhes.cabecasAtuais}</span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-indigo-100/50 pb-2">
+                      <span className="text-indigo-700/80">Vendidas / Mortas</span>
+                      <span className="font-medium text-indigo-950">
+                        {loteDetalhes.cabecasVendidas} / {loteDetalhes.cabecasIniciais - loteDetalhes.cabecasAtuais - loteDetalhes.cabecasVendidas}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-indigo-700/80">Peso Médio Inicial</span>
+                      <span className="font-medium text-indigo-950">{loteDetalhes.pesoMedioEntrada} kg</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bloco: Financeiro */}
+                <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100/50">
+                  <h4 className="text-sm font-semibold text-emerald-900 mb-3 uppercase tracking-wider">Evolução Financeira</h4>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between items-center border-b border-emerald-100/50 pb-2">
+                      <span className="text-emerald-700/80">Custo de Aquisição</span>
+                      <span className="font-medium text-emerald-950">R$ {loteDetalhes.custoCompra.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-emerald-100/50 pb-2">
+                      <span className="text-emerald-700/80">Custo de Ração</span>
+                      <span className="font-medium text-emerald-950">R$ {loteDetalhes.custoRacao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-emerald-100/50 pb-2">
+                      <span className="text-emerald-700/80">Despesas Diretas</span>
+                      <span className="font-medium text-emerald-950">R$ {loteDetalhes.custoDireto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-1">
+                      <span className="font-semibold text-emerald-800">Custo Total Atual</span>
+                      <span className="font-bold text-emerald-700">
+                        R$ {(loteDetalhes.custoCompra + loteDetalhes.custoRacao + loteDetalhes.custoDireto + loteDetalhes.estruturaRateada).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bloco: Receitas */}
+                <div className="sm:col-span-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-800">Receita Realizada (Vendas)</h4>
+                      <p className="text-xs text-slate-500 mt-1">Valor acumulado de todas as vendas deste lote</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xl font-bold text-slate-900">
+                        R$ {loteDetalhes.receitaRealizada.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bloco: Observação (Aparece apenas se houver observação) */}
+                {loteDetalhes.observacao && (
+                  <div className="sm:col-span-2 bg-amber-50/50 p-4 rounded-xl border border-amber-200/60">
+                    <h4 className="text-sm font-semibold text-amber-900 mb-2">Observações do Lote</h4>
+                    <p className="text-sm text-amber-950 whitespace-pre-wrap">
+                      {loteDetalhes.observacao}
+                    </p>
+                  </div>
+                )}
+
+              </div>
+            </div>
+            
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+              <button 
+                onClick={() => handleDelete(loteDetalhes.id)}
+                className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Excluir Lote
+              </button>
+              <button 
+                onClick={() => setLoteDetalhesId(null)}
+                className="px-6 py-2 text-sm font-medium bg-slate-800 text-white hover:bg-slate-900 rounded-lg transition-colors"
+              >
+                Fechar Detalhes
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }
