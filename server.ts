@@ -1,8 +1,13 @@
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
-import Database from 'better-sqlite3';
+import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
+
+// Liga o backend ao Supabase usando as chaves injetadas pelo Google Cloud
+const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function startServer() {
   const app = express();
@@ -10,46 +15,67 @@ async function startServer() {
 
   app.use(express.json());
 
-  // Initialize SQLite Database
-  const db = new Database('campestre.db');
-
-  // Create Events Table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS events (
-      id TEXT PRIMARY KEY,
-      farm_id TEXT NOT NULL,
-      user_id TEXT NOT NULL,
-      type TEXT NOT NULL,
-      payload TEXT NOT NULL,
-      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
   // API Routes
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok' });
   });
 
-  app.get('/api/events', (req, res) => {
+  // Busca os dados diretamente do Supabase filtrando pelo utilizador
+  app.get('/api/events', async (req, res) => {
     const farmId = req.query.farmId || 'farm_1';
-    const stmt = db.prepare('SELECT * FROM events WHERE farm_id = ? ORDER BY timestamp ASC');
-    const events = stmt.all(farmId).map((row: any) => ({
+    const userId = req.query.userId; 
+
+    if (!userId) {
+      return res.json([]); 
+    }
+
+    const { data, error } = await supabase
+      .from('events')
+      .select('*')
+      .eq('farm_id', farmId)
+      .eq('user_id', userId)
+      .order('timestamp', { ascending: true });
+
+    if (error) {
+      console.error('Erro ao buscar eventos no Supabase:', error);
+      return res.status(500).json({ error: 'Erro ao buscar dados' });
+    }
+
+    const events = data.map((row: any) => ({
       ...row,
-      payload: JSON.parse(row.payload)
+      // O Supabase já envia o JSONB pronto, mas garantimos o formato aqui
+      payload: typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload
     }));
+    
     res.json(events);
   });
 
-  app.post('/api/events', (req, res) => {
+  // Guarda os dados diretamente no Supabase
+  app.post('/api/events', async (req, res) => {
     const { farmId, userId, type, payload } = req.body;
     
     if (!farmId || !userId || !type || !payload) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      return res.status(400).json({ error: 'Faltam campos obrigatórios' });
     }
 
     const id = uuidv4();
-    const stmt = db.prepare('INSERT INTO events (id, farm_id, user_id, type, payload) VALUES (?, ?, ?, ?, ?)');
-    stmt.run(id, farmId, userId, type, JSON.stringify(payload));
+    
+    const { error } = await supabase
+      .from('events')
+      .insert([
+        {
+          id,
+          farm_id: farmId,
+          user_id: userId,
+          type,
+          payload: payload // No Supabase com JSONB não precisamos de JSON.stringify
+        }
+      ]);
+
+    if (error) {
+      console.error('Erro ao inserir evento no Supabase:', error);
+      return res.status(500).json({ error: 'Erro ao guardar os dados' });
+    }
     
     res.json({ id, farmId, userId, type, payload, timestamp: new Date().toISOString() });
   });
@@ -64,14 +90,14 @@ async function startServer() {
   } else {
     app.use(express.static('dist'));
     
-    // Rota curinga para o React Router funcionar corretamente em produção
+    // Rota curinga para o React Router funcionar corretamente
     app.get('*', (req, res) => {
       res.sendFile(path.resolve('dist/index.html'));
     });
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on porta ${PORT}`);
   });
 }
 
