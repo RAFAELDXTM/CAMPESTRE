@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { AppEvent, FarmState, LoteState, IngredienteState, FormulaState } from './types';
-import { mockEvents } from './mock/seed';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from './lib/supabase';
-// NOVA IMPORTAÇÃO: Precisamos saber quem é o usuário logado
 import { useAuth } from './contexts/AuthContext';
 
 interface AppContextType {
@@ -19,11 +17,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // PEGANDO O USUÁRIO LOGADO:
   const { user } = useAuth();
 
   const fetchEvents = useCallback(async () => {
-    // Se o usuário não estiver logado ainda, não tenta buscar nada
     if (!user) {
       setLoading(false);
       return;
@@ -31,7 +27,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     try {
       if (supabase) {
-        // AGORA FILTRAMOS PELO USUÁRIO REAL: .eq('user_id', user.id)
         const { data, error } = await supabase
           .from('events')
           .select('*')
@@ -43,19 +38,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (data && data.length > 0) {
           setEvents(data as AppEvent[]);
         } else {
-          // Se o usuário é novo e não tem eventos, começa com a lista vazia (não mais com mock data)
           setEvents([]); 
         }
       } else {
-        setEvents(mockEvents);
+        setEvents([]);
       }
     } catch (error) {
       console.error('Error fetching events:', error);
-      setEvents([]); // Em caso de erro, limpa os eventos em vez de mostrar mock
+      setEvents([]); 
     } finally {
       setLoading(false);
     }
-  }, [user]); // Adicionamos 'user' como dependência
+  }, [user?.id]); // Correção de segurança para evitar loops
 
   useEffect(() => {
     fetchEvents();
@@ -69,14 +63,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const newEvent: AppEvent = {
       id: uuidv4(),
-      farm_id: 'farm_1', // No futuro, isso pode vir das configurações da fazenda
-      user_id: user.id,  // AGORA USA O ID REAL DO USUÁRIO LOGADO
+      farm_id: 'farm_1',
+      user_id: user.id,
       type: type as any,
       payload,
       timestamp: new Date().toISOString(),
     };
 
-    // Optimistic update
     setEvents((prev) => [...prev, newEvent]);
 
     if (supabase) {
@@ -87,7 +80,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           
         if (error) {
           console.error('Error saving event to Supabase:', error);
-          // Revert optimistic update on error se falhar de verdade
           setEvents((prev) => prev.filter(e => e.id !== newEvent.id));
         }
       } catch (error) {
@@ -150,7 +142,14 @@ function computeState(events: AppEvent[]): FarmState {
           receitaRealizada: 0,
           cabecasVendidas: 0,
           status: 'ATIVO',
+          // AQUI ESTÁ A CORREÇÃO: Agora o sistema lê e armazena a observação
+          observacao: p.observacao, 
         };
+        break;
+      }
+      case 'LOTE_EXCLUIDO': {
+        const p = payload as any;
+        delete state.lotes[p.loteId];
         break;
       }
       case 'LOTE_SUBDIVIDIDO': {
@@ -176,6 +175,7 @@ function computeState(events: AppEvent[]): FarmState {
             receitaRealizada: 0,
             cabecasVendidas: 0,
             status: 'ATIVO',
+            observacao: p.observacao, // Subdivisão também pode herdar observação
           };
         }
         break;
