@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store';
 import { format } from 'date-fns';
-import { Wheat, Plus, PackagePlus } from 'lucide-react';
+import { Wheat, Plus, PackagePlus, Trash2 } from 'lucide-react';
 
 export default function Racao() {
   const { state, addEvent } = useAppStore();
@@ -16,7 +16,7 @@ export default function Racao() {
   const [observacaoCompra, setObservacaoCompra] = useState('');
 
   // Formula State
-  const [loteId, setLoteId] = useState('GERAL'); // Por padrão, a fórmula é GERAL
+  const [loteId, setLoteId] = useState('GERAL');
   const [nomeFormula, setNomeFormula] = useState('');
   const [dataInicio, setDataInicio] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [composicao, setComposicao] = useState<{ ingredienteId: string; percentual: number }[]>([{ ingredienteId: '', percentual: 0 }]);
@@ -35,18 +35,13 @@ export default function Racao() {
       data: dataCompra,
       observacao: observacaoCompra,
     });
-    setIngredienteId('');
-    setIngredienteNome('');
-    setQuantidadeKg('');
-    setValorTotal('');
-    setObservacaoCompra('');
+    setIngredienteId(''); setIngredienteNome(''); setQuantidadeKg(''); setValorTotal(''); setObservacaoCompra('');
   };
 
   const handleFormula = async (e: React.FormEvent) => {
     e.preventDefault();
     const totalPercentual = composicao.reduce((acc, curr) => acc + curr.percentual, 0);
     
-    // Usamos Math.abs para evitar bugs de precisão decimal do JavaScript (ex: 99.9999999%)
     if (Math.abs(totalPercentual - 100) > 0.01) {
       alert('A soma dos percentuais deve ser exatamente 100%.');
       return;
@@ -59,9 +54,17 @@ export default function Racao() {
       dataInicio,
       composicao,
     });
-    setLoteId('GERAL');
-    setNomeFormula('');
-    setComposicao([{ ingredienteId: '', percentual: 0 }]);
+    setLoteId('GERAL'); setNomeFormula(''); setComposicao([{ ingredienteId: '', percentual: 0 }]);
+  };
+
+  // Função NOVO: Excluir a Fórmula
+  const handleDeleteFormula = async (id: string, nome: string) => {
+    const confirmDelete = window.confirm(`Tem certeza que deseja excluir a fórmula "${nome}"?`);
+    if (confirmDelete) {
+      await addEvent('FORMULA_EXCLUIDA', {
+        formulaId: id
+      });
+    }
   };
 
   return (
@@ -74,24 +77,10 @@ export default function Racao() {
       </div>
 
       <div className="flex gap-4 border-b border-slate-200">
-        <button
-          onClick={() => setActiveTab('estoque')}
-          className={`pb-3 px-1 font-medium text-sm transition-colors ${
-            activeTab === 'estoque'
-              ? 'border-b-2 border-emerald-600 text-emerald-700'
-              : 'text-slate-500 hover:text-slate-700'
-          }`}
-        >
+        <button onClick={() => setActiveTab('estoque')} className={`pb-3 px-1 font-medium text-sm transition-colors ${activeTab === 'estoque' ? 'border-b-2 border-emerald-600 text-emerald-700' : 'text-slate-500 hover:text-slate-700'}`}>
           Estoque e Compras
         </button>
-        <button
-          onClick={() => setActiveTab('formulas')}
-          className={`pb-3 px-1 font-medium text-sm transition-colors ${
-            activeTab === 'formulas'
-              ? 'border-b-2 border-emerald-600 text-emerald-700'
-              : 'text-slate-500 hover:text-slate-700'
-          }`}
-        >
+        <button onClick={() => setActiveTab('formulas')} className={`pb-3 px-1 font-medium text-sm transition-colors ${activeTab === 'formulas' ? 'border-b-2 border-emerald-600 text-emerald-700' : 'text-slate-500 hover:text-slate-700'}`}>
           Fórmulas Cadastradas
         </button>
       </div>
@@ -99,48 +88,27 @@ export default function Racao() {
       {activeTab === 'estoque' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <h2 className="text-lg font-semibold mb-6 flex items-center gap-2">
-              <PackagePlus className="w-5 h-5 text-slate-500" />
-              Nova Compra
-            </h2>
+            <h2 className="text-lg font-semibold mb-6 flex items-center gap-2"><PackagePlus className="w-5 h-5 text-slate-500" />Nova Compra</h2>
             <form onSubmit={handleCompra} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Ingrediente</label>
                 <select value={ingredienteId} onChange={e => { setIngredienteId(e.target.value); if(e.target.value) setIngredienteNome(''); }} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
                   <option value="">Novo Ingrediente...</option>
-                  {ingredientes.map(i => (
-                    <option key={i.id} value={i.id}>{i.nome}</option>
-                  ))}
+                  {ingredientes.map(i => <option key={i.id} value={i.id}>{i.nome}</option>)}
                 </select>
               </div>
               {!ingredienteId && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Novo Ingrediente</label>
-                  <input required type="text" value={ingredienteNome} onChange={e => setIngredienteNome(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
-                </div>
+                <div><label className="block text-sm font-medium text-slate-700 mb-1">Nome do Novo Ingrediente</label><input required type="text" value={ingredienteNome} onChange={e => setIngredienteNome(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" /></div>
               )}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Quantidade (kg)</label>
-                <input required type="number" min="0.1" step="0.1" value={quantidadeKg} onChange={e => setQuantidadeKg(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Valor Total (R$)</label>
-                <input required type="number" min="0.01" step="0.01" value={valorTotal} onChange={e => setValorTotal(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Data</label>
-                <input required type="date" value={dataCompra} onChange={e => setDataCompra(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
-              </div>
-              <button type="submit" className="w-full py-2.5 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors">
-                Registrar Compra
-              </button>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1">Quantidade (kg)</label><input required type="number" min="0.1" step="0.1" value={quantidadeKg} onChange={e => setQuantidadeKg(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" /></div>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1">Valor Total (R$)</label><input required type="number" min="0.01" step="0.01" value={valorTotal} onChange={e => setValorTotal(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" /></div>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1">Data</label><input required type="date" value={dataCompra} onChange={e => setDataCompra(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" /></div>
+              <button type="submit" className="w-full py-2.5 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors">Registrar Compra</button>
             </form>
           </div>
 
           <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-6 border-b border-slate-200">
-              <h2 className="text-lg font-semibold">Posição de Estoque</h2>
-            </div>
+            <div className="p-6 border-b border-slate-200"><h2 className="text-lg font-semibold">Posição de Estoque</h2></div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
@@ -153,9 +121,7 @@ export default function Racao() {
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {ingredientes.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-6 py-8 text-center text-slate-500">Nenhum ingrediente em estoque.</td>
-                    </tr>
+                    <tr><td colSpan={4} className="px-6 py-8 text-center text-slate-500">Nenhum ingrediente em estoque.</td></tr>
                   ) : (
                     ingredientes.map(ing => (
                       <tr key={ing.id} className="hover:bg-slate-50">
@@ -176,54 +142,34 @@ export default function Racao() {
       {activeTab === 'formulas' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <h2 className="text-lg font-semibold mb-6 flex items-center gap-2">
-              <Plus className="w-5 h-5 text-slate-500" />
-              Nova Fórmula
-            </h2>
+            <h2 className="text-lg font-semibold mb-6 flex items-center gap-2"><Plus className="w-5 h-5 text-slate-500" />Nova Fórmula</h2>
             <form onSubmit={handleFormula} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Vincular a um Lote</label>
                 <select value={loteId} onChange={e => setLoteId(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
                   <option value="GERAL">Fórmula Geral (Todos os lotes)</option>
-                  {lotesAtivos.map(l => (
-                    <option key={l.id} value={l.id}>Apenas Lote: {l.id} ({l.cabecasAtuais} cbç)</option>
-                  ))}
+                  {lotesAtivos.map(l => <option key={l.id} value={l.id}>Apenas Lote: {l.id} ({l.cabecasAtuais} cbç)</option>)}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nome da Fórmula</label>
-                <input required type="text" value={nomeFormula} onChange={e => setNomeFormula(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Data Início</label>
-                <input required type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
-              </div>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1">Nome da Fórmula</label><input required type="text" value={nomeFormula} onChange={e => setNomeFormula(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" /></div>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1">Data Início</label><input required type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" /></div>
               
               <div className="pt-2 border-t border-slate-200">
                 <label className="block text-sm font-medium text-slate-700 mb-2">Composição (%)</label>
                 {composicao.map((item, index) => (
                   <div key={index} className="flex gap-2 mb-2">
                     <select required value={item.ingredienteId} onChange={e => {
-                      const newComp = [...composicao];
-                      newComp[index].ingredienteId = e.target.value;
-                      setComposicao(newComp);
+                      const newComp = [...composicao]; newComp[index].ingredienteId = e.target.value; setComposicao(newComp);
                     }} className="flex-1 p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
                       <option value="">Ingrediente...</option>
-                      {ingredientes.map(i => (
-                        <option key={i.id} value={i.id}>{i.nome}</option>
-                      ))}
+                      {ingredientes.map(i => <option key={i.id} value={i.id}>{i.nome}</option>)}
                     </select>
                     <input required type="number" min="0" max="100" step="0.1" value={item.percentual} onChange={e => {
-                      const newComp = [...composicao];
-                      newComp[index].percentual = parseFloat(e.target.value) || 0;
-                      setComposicao(newComp);
+                      const newComp = [...composicao]; newComp[index].percentual = parseFloat(e.target.value) || 0; setComposicao(newComp);
                     }} className="w-20 p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm text-right" placeholder="%" />
                     <button type="button" onClick={() => {
-                      const newComp = composicao.filter((_, i) => i !== index);
-                      setComposicao(newComp);
-                    }} className="p-2 text-red-500 hover:bg-red-50 rounded-lg">
-                      <Plus className="w-4 h-4 rotate-45" />
-                    </button>
+                      const newComp = composicao.filter((_, i) => i !== index); setComposicao(newComp);
+                    }} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Plus className="w-4 h-4 rotate-45" /></button>
                   </div>
                 ))}
                 <button type="button" onClick={() => setComposicao([...composicao, { ingredienteId: '', percentual: 0 }])} className="text-sm text-emerald-600 font-medium hover:text-emerald-700 mt-2">
@@ -236,17 +182,12 @@ export default function Racao() {
                   </span>
                 </div>
               </div>
-
-              <button type="submit" className="w-full py-2.5 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors mt-4">
-                Salvar Fórmula
-              </button>
+              <button type="submit" className="w-full py-2.5 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors mt-4">Salvar Fórmula</button>
             </form>
           </div>
 
           <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-6 border-b border-slate-200">
-              <h2 className="text-lg font-semibold">Fórmulas Cadastradas</h2>
-            </div>
+            <div className="p-6 border-b border-slate-200"><h2 className="text-lg font-semibold">Fórmulas Cadastradas</h2></div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
@@ -255,21 +196,18 @@ export default function Racao() {
                     <th className="px-6 py-4 font-medium">Fórmula</th>
                     <th className="px-6 py-4 font-medium">Data Início</th>
                     <th className="px-6 py-4 font-medium">Composição</th>
+                    <th className="px-6 py-4 font-medium text-center">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {formulas.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-6 py-8 text-center text-slate-500">Nenhuma fórmula cadastrada.</td>
-                    </tr>
+                    <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500">Nenhuma fórmula cadastrada.</td></tr>
                   ) : (
                     formulas.map(f => (
                       <tr key={f.id} className="hover:bg-slate-50">
                         <td className="px-6 py-4">
                           {f.loteId === 'GERAL' ? (
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-100 text-blue-800">
-                              Geral
-                            </span>
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-100 text-blue-800">Geral</span>
                           ) : (
                             <span className="font-medium text-slate-900">{f.loteId}</span>
                           )}
@@ -283,6 +221,17 @@ export default function Racao() {
                                 {state.ingredientes[c.ingredienteId]?.nome}: {c.percentual}%
                               </span>
                             ))}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex justify-center">
+                            <button 
+                              onClick={() => handleDeleteFormula(f.id, f.nome)}
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                              title="Excluir Fórmula"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         </td>
                       </tr>
