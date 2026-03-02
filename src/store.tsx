@@ -1,8 +1,10 @@
-import React, {  useState, useEffect, useCallback, createContext, useContext  } from 'react';
+import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { AppEvent, FarmState, LoteState, IngredienteState, FormulaState } from './types';
 import { mockEvents } from './mock/seed';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from './lib/supabase';
+// NOVA IMPORTAÇÃO: Precisamos saber quem é o usuário logado
+import { useAuth } from './contexts/AuthContext';
 
 interface AppContextType {
   state: FarmState;
@@ -16,13 +18,24 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // PEGANDO O USUÁRIO LOGADO:
+  const { user } = useAuth();
 
   const fetchEvents = useCallback(async () => {
+    // Se o usuário não estiver logado ainda, não tenta buscar nada
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     try {
       if (supabase) {
+        // AGORA FILTRAMOS PELO USUÁRIO REAL: .eq('user_id', user.id)
         const { data, error } = await supabase
           .from('events')
           .select('*')
+          .eq('user_id', user.id) 
           .order('timestamp', { ascending: true });
           
         if (error) throw error;
@@ -30,30 +43,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (data && data.length > 0) {
           setEvents(data as AppEvent[]);
         } else {
-          // If no events in Supabase, load mock data to start
-          setEvents(mockEvents);
+          // Se o usuário é novo e não tem eventos, começa com a lista vazia (não mais com mock data)
+          setEvents([]); 
         }
       } else {
-        // Fallback to mock data if Supabase is not configured
         setEvents(mockEvents);
       }
     } catch (error) {
       console.error('Error fetching events:', error);
-      setEvents(mockEvents); // Fallback on error
+      setEvents([]); // Em caso de erro, limpa os eventos em vez de mostrar mock
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]); // Adicionamos 'user' como dependência
 
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents]);
 
   const addEvent = async (type: string, payload: any) => {
+    if (!user) {
+      console.error("Não é possível salvar: Usuário não está logado");
+      return;
+    }
+
     const newEvent: AppEvent = {
       id: uuidv4(),
-      farm_id: 'farm_1', // Hardcoded for now, would come from auth
-      user_id: 'user_1', // Hardcoded for now, would come from auth
+      farm_id: 'farm_1', // No futuro, isso pode vir das configurações da fazenda
+      user_id: user.id,  // AGORA USA O ID REAL DO USUÁRIO LOGADO
       type: type as any,
       payload,
       timestamp: new Date().toISOString(),
@@ -70,8 +87,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           
         if (error) {
           console.error('Error saving event to Supabase:', error);
-          // Revert optimistic update on error if needed
-          // setEvents((prev) => prev.filter(e => e.id !== newEvent.id));
+          // Revert optimistic update on error se falhar de verdade
+          setEvents((prev) => prev.filter(e => e.id !== newEvent.id));
         }
       } catch (error) {
         console.error('Error saving event:', error);
