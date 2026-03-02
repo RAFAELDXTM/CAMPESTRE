@@ -1,20 +1,27 @@
-import React, {  useState  } from 'react';
+import React, { useState } from 'react';
 import { useAppStore } from '../store';
 import { format } from 'date-fns';
 import { TrendingUp } from 'lucide-react';
 
 export default function Vendas() {
   const { state, addEvent } = useAppStore();
+  
+  // Estados do formulário
   const [data, setData] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [loteId, setLoteId] = useState('');
   const [cabecasVendidas, setCabecasVendidas] = useState('');
   const [pesoMedioKg, setPesoMedioKg] = useState('');
   const [precoArroba, setPrecoArroba] = useState('');
   const [observacao, setObservacao] = useState('');
+  
+  // Novos estados para o Financeiro
+  const [formaPagamento, setFormaPagamento] = useState<'a_vista' | 'a_prazo'>('a_vista');
+  const [dataRecebimento, setDataRecebimento] = useState(format(new Date(), 'yyyy-MM-dd'));
 
   const lotesAtivos = (Object.values(state.lotes) as any[]).filter(l => l.status === 'ATIVO');
   const loteSelecionado = state.lotes[loteId];
 
+  // Cálculos financeiros
   const arrobasTotais = pesoMedioKg && cabecasVendidas 
     ? ((parseFloat(pesoMedioKg) / 30) * parseInt(cabecasVendidas)).toFixed(2)
     : '0.00';
@@ -25,6 +32,8 @@ export default function Vendas() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // 1. Registra a Venda no estoque/lote
     await addEvent('VENDA_LOTE_REGISTRADA', {
       loteId,
       cabecasVendidas: parseInt(cabecasVendidas),
@@ -33,11 +42,28 @@ export default function Vendas() {
       data,
       observacao,
     });
+
+    // 2. Automação: Se for a prazo, cria a conta a receber no Financeiro
+    if (formaPagamento === 'a_prazo') {
+      await addEvent('CONTAS_RECEBER_CRIADA', {
+        id: `rec_${Date.now()}`,
+        descricao: `Venda Lote ${loteId} (${cabecasVendidas} cbç)`,
+        categoria: 'Venda de Animais',
+        valor: parseFloat(receitaEstimada),
+        dataVencimento: dataRecebimento,
+        status: 'Pendente',
+        observacao: observacao ? `Venda a prazo. Obs: ${observacao}` : 'Gerado automaticamente pela venda a prazo'
+      });
+    }
+
+    // Limpa o formulário para a próxima venda
     setLoteId('');
     setCabecasVendidas('');
     setPesoMedioKg('');
     setPrecoArroba('');
     setObservacao('');
+    setFormaPagamento('a_vista');
+    setDataRecebimento(format(new Date(), 'yyyy-MM-dd'));
   };
 
   return (
@@ -55,13 +81,13 @@ export default function Vendas() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Data</label>
-                <input required type="date" value={data} onChange={e => setData(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
+                <label className="block text-sm font-medium text-slate-700 mb-1">Data da Venda</label>
+                <input required type="date" value={data} onChange={e => setData(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white" />
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Lote</label>
-                <select required value={loteId} onChange={e => setLoteId(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                <select required value={loteId} onChange={e => setLoteId(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white">
                   <option value="">Selecione o lote...</option>
                   {lotesAtivos.map(l => (
                     <option key={l.id} value={l.id}>{l.id} ({l.cabecasAtuais} cbç)</option>
@@ -71,27 +97,54 @@ export default function Vendas() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Cabeças Vendidas</label>
-                <input required type="number" min="1" max={loteSelecionado?.cabecasAtuais || 1} value={cabecasVendidas} onChange={e => setCabecasVendidas(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
+                <input required type="number" min="1" max={loteSelecionado?.cabecasAtuais || 1} value={cabecasVendidas} onChange={e => setCabecasVendidas(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white" />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Peso Médio (kg)</label>
-                <input required type="number" min="0.1" step="0.1" value={pesoMedioKg} onChange={e => setPesoMedioKg(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
+                <input required type="number" min="0.1" step="0.1" value={pesoMedioKg} onChange={e => setPesoMedioKg(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white" />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Preço (R$/@)</label>
-                <input required type="number" min="0.01" step="0.01" value={precoArroba} onChange={e => setPrecoArroba(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
+                <input required type="number" min="0.01" step="0.01" value={precoArroba} onChange={e => setPrecoArroba(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white" />
+              </div>
+
+              <div className="md:col-span-2 pt-2 mt-2 border-t border-slate-100">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* NOVO: Forma de Pagamento */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Pagamento</label>
+                    <select value={formaPagamento} onChange={e => setFormaPagamento(e.target.value as any)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white">
+                      <option value="a_vista">À Vista</option>
+                      <option value="a_prazo">A Prazo</option>
+                    </select>
+                  </div>
+
+                  {/* NOVO: Data do Recebimento (Aparece apenas se for a prazo) */}
+                  {formaPagamento === 'a_prazo' ? (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Data do Recebimento</label>
+                      <input required type="date" value={dataRecebimento} onChange={e => setDataRecebimento(e.target.value)} min={data} className="w-full p-2.5 border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-emerald-50/30" />
+                    </div>
+                  ) : (
+                    <div></div> // Espaçador para alinhar o grid
+                  )}
+                </div>
               </div>
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-700 mb-1">Observação</label>
-                <input type="text" value={observacao} onChange={e => setObservacao(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" placeholder="Opcional" />
+                <input type="text" value={observacao} onChange={e => setObservacao(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white" placeholder="Opcional" />
               </div>
             </div>
             
             <div className="pt-4 flex justify-end">
-              <button type="submit" disabled={!loteId || !cabecasVendidas || !pesoMedioKg || !precoArroba} className="px-6 py-2.5 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+              <button 
+                type="submit" 
+                disabled={!loteId || !cabecasVendidas || !pesoMedioKg || !precoArroba || (formaPagamento === 'a_prazo' && !dataRecebimento)} 
+                className="px-6 py-2.5 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
                 Registrar Venda
               </button>
             </div>
@@ -117,6 +170,13 @@ export default function Vendas() {
               <p className="text-4xl font-light font-mono text-emerald-400">
                 R$ {parseFloat(receitaEstimada).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
+              
+              {formaPagamento === 'a_prazo' && (
+                <div className="mt-3 inline-block bg-slate-800 border border-slate-700 rounded-md px-3 py-1.5">
+                  <p className="text-xs text-amber-400 font-medium">Lançamento automático</p>
+                  <p className="text-xs text-slate-300 mt-0.5">Irá gerar uma "Conta a Receber" pendente para {format(new Date(dataRecebimento), 'dd/MM/yyyy')}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
