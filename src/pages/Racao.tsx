@@ -1,4 +1,4 @@
-import React, {  useState  } from 'react';
+import React, { useState } from 'react';
 import { useAppStore } from '../store';
 import { format } from 'date-fns';
 import { Wheat, Plus, PackagePlus } from 'lucide-react';
@@ -16,8 +16,7 @@ export default function Racao() {
   const [observacaoCompra, setObservacaoCompra] = useState('');
 
   // Formula State
-  const [loteId, setLoteId] = useState('');
-  const [formulaId, setFormulaId] = useState('');
+  const [loteId, setLoteId] = useState('GERAL'); // Por padrão, a fórmula é GERAL
   const [nomeFormula, setNomeFormula] = useState('');
   const [dataInicio, setDataInicio] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [composicao, setComposicao] = useState<{ ingredienteId: string; percentual: number }[]>([{ ingredienteId: '', percentual: 0 }]);
@@ -46,19 +45,21 @@ export default function Racao() {
   const handleFormula = async (e: React.FormEvent) => {
     e.preventDefault();
     const totalPercentual = composicao.reduce((acc, curr) => acc + curr.percentual, 0);
-    if (totalPercentual !== 100) {
+    
+    // Usamos Math.abs para evitar bugs de precisão decimal do JavaScript (ex: 99.9999999%)
+    if (Math.abs(totalPercentual - 100) > 0.01) {
       alert('A soma dos percentuais deve ser exatamente 100%.');
       return;
     }
 
     await addEvent('FORMULA_LOTE_CRIADA', {
-      loteId,
+      loteId: loteId === '' ? 'GERAL' : loteId,
       formulaId: `form_${Date.now()}`,
       nomeFormula,
       dataInicio,
       composicao,
     });
-    setLoteId('');
+    setLoteId('GERAL');
     setNomeFormula('');
     setComposicao([{ ingredienteId: '', percentual: 0 }]);
   };
@@ -91,7 +92,7 @@ export default function Racao() {
               : 'text-slate-500 hover:text-slate-700'
           }`}
         >
-          Fórmulas por Lote
+          Fórmulas Cadastradas
         </button>
       </div>
 
@@ -181,11 +182,11 @@ export default function Racao() {
             </h2>
             <form onSubmit={handleFormula} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Lote</label>
-                <select required value={loteId} onChange={e => setLoteId(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
-                  <option value="">Selecione o lote...</option>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Vincular a um Lote</label>
+                <select value={loteId} onChange={e => setLoteId(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                  <option value="GERAL">Fórmula Geral (Todos os lotes)</option>
                   {lotesAtivos.map(l => (
-                    <option key={l.id} value={l.id}>{l.id} ({l.cabecasAtuais} cbç)</option>
+                    <option key={l.id} value={l.id}>Apenas Lote: {l.id} ({l.cabecasAtuais} cbç)</option>
                   ))}
                 </select>
               </div>
@@ -230,8 +231,8 @@ export default function Racao() {
                 </button>
                 <div className="mt-4 flex justify-between items-center text-sm font-medium">
                   <span className="text-slate-500">Total:</span>
-                  <span className={composicao.reduce((a, c) => a + c.percentual, 0) === 100 ? 'text-emerald-600' : 'text-red-600'}>
-                    {composicao.reduce((a, c) => a + c.percentual, 0)}%
+                  <span className={Math.abs(composicao.reduce((a, c) => a + c.percentual, 0) - 100) < 0.01 ? 'text-emerald-600' : 'text-red-600'}>
+                    {composicao.reduce((a, c) => a + c.percentual, 0).toFixed(1)}%
                   </span>
                 </div>
               </div>
@@ -264,13 +265,21 @@ export default function Racao() {
                   ) : (
                     formulas.map(f => (
                       <tr key={f.id} className="hover:bg-slate-50">
-                        <td className="px-6 py-4 font-medium text-slate-900">{f.loteId}</td>
-                        <td className="px-6 py-4">{f.nome}</td>
+                        <td className="px-6 py-4">
+                          {f.loteId === 'GERAL' ? (
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-100 text-blue-800">
+                              Geral
+                            </span>
+                          ) : (
+                            <span className="font-medium text-slate-900">{f.loteId}</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 font-medium text-slate-900">{f.nome}</td>
                         <td className="px-6 py-4">{format(new Date(f.dataInicio), 'dd/MM/yyyy')}</td>
                         <td className="px-6 py-4">
                           <div className="flex flex-wrap gap-2">
                             {f.composicao.map((c, i) => (
-                              <span key={i} className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700">
+                              <span key={i} className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
                                 {state.ingredientes[c.ingredienteId]?.nome}: {c.percentual}%
                               </span>
                             ))}
