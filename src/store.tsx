@@ -49,7 +49,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [user?.id]); // Correção de segurança para evitar loops
+  }, [user?.id]);
 
   useEffect(() => {
     fetchEvents();
@@ -142,7 +142,6 @@ function computeState(events: AppEvent[]): FarmState {
           receitaRealizada: 0,
           cabecasVendidas: 0,
           status: 'ATIVO',
-          // AQUI ESTÁ A CORREÇÃO: Agora o sistema lê e armazena a observação
           observacao: p.observacao, 
         };
         break;
@@ -175,7 +174,7 @@ function computeState(events: AppEvent[]): FarmState {
             receitaRealizada: 0,
             cabecasVendidas: 0,
             status: 'ATIVO',
-            observacao: p.observacao, // Subdivisão também pode herdar observação
+            observacao: p.observacao,
           };
         }
         break;
@@ -213,6 +212,12 @@ function computeState(events: AppEvent[]): FarmState {
           dataInicio: p.dataInicio,
           composicao: p.composicao,
         };
+        break;
+      }
+      // NOVO EVENTO: Permite que o sistema apague a fórmula da memória
+      case 'FORMULA_EXCLUIDA': {
+        const p = payload as any;
+        delete state.formulas[p.formulaId];
         break;
       }
       case 'TRATO_DIARIO_REGISTRADO': {
