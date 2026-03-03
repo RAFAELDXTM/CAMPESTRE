@@ -6,7 +6,6 @@ import { TrendingUp } from 'lucide-react';
 export default function Vendas() {
   const { state, addEvent } = useAppStore();
   
-  // Estados do formulário
   const [data, setData] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [loteId, setLoteId] = useState('');
   const [cabecasVendidas, setCabecasVendidas] = useState('');
@@ -14,14 +13,12 @@ export default function Vendas() {
   const [precoArroba, setPrecoArroba] = useState('');
   const [observacao, setObservacao] = useState('');
   
-  // Novos estados para o Financeiro
   const [formaPagamento, setFormaPagamento] = useState<'a_vista' | 'a_prazo'>('a_vista');
   const [dataRecebimento, setDataRecebimento] = useState(format(new Date(), 'yyyy-MM-dd'));
 
   const lotesAtivos = (Object.values(state.lotes) as any[]).filter(l => l.status === 'ATIVO');
   const loteSelecionado = state.lotes[loteId];
 
-  // Cálculos financeiros
   const arrobasTotais = pesoMedioKg && cabecasVendidas 
     ? ((parseFloat(pesoMedioKg) / 30) * parseInt(cabecasVendidas)).toFixed(2)
     : '0.00';
@@ -43,20 +40,19 @@ export default function Vendas() {
       observacao,
     });
 
-    // 2. Automação: Se for a prazo, cria a conta a receber no Financeiro
+    // 2. Automação Corrigida: Agora enviamos exatamente o que o Financeiro precisa!
     if (formaPagamento === 'a_prazo') {
       await addEvent('CONTAS_RECEBER_CRIADA', {
-        id: `rec_${Date.now()}`,
-        descricao: `Venda Lote ${loteId} (${cabecasVendidas} cbç)`,
+        id: `cr_${Date.now()}`,
+        cliente: `Venda Lote ${loteId} (${cabecasVendidas} cbç)`, // Financeiro espera 'cliente'
         categoria: 'Venda de Animais',
         valor: parseFloat(receitaEstimada),
-        dataVencimento: dataRecebimento,
-        status: 'Pendente',
+        vencimento: dataRecebimento, // Financeiro espera 'vencimento'
+        status: 'Aberto', // Financeiro espera 'Aberto'
         observacao: observacao ? `Venda a prazo. Obs: ${observacao}` : 'Gerado automaticamente pela venda a prazo'
       });
     }
 
-    // Limpa o formulário para a próxima venda
     setLoteId('');
     setCabecasVendidas('');
     setPesoMedioKg('');
@@ -112,7 +108,6 @@ export default function Vendas() {
 
               <div className="md:col-span-2 pt-2 mt-2 border-t border-slate-100">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* NOVO: Forma de Pagamento */}
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Pagamento</label>
                     <select value={formaPagamento} onChange={e => setFormaPagamento(e.target.value as any)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white">
@@ -121,14 +116,13 @@ export default function Vendas() {
                     </select>
                   </div>
 
-                  {/* NOVO: Data do Recebimento (Aparece apenas se for a prazo) */}
                   {formaPagamento === 'a_prazo' ? (
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Data do Recebimento</label>
                       <input required type="date" value={dataRecebimento} onChange={e => setDataRecebimento(e.target.value)} min={data} className="w-full p-2.5 border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-emerald-50/30" />
                     </div>
                   ) : (
-                    <div></div> // Espaçador para alinhar o grid
+                    <div></div> 
                   )}
                 </div>
               </div>
