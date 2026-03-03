@@ -8,6 +8,8 @@ export default function Vendas() {
   
   const [data, setData] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [loteId, setLoteId] = useState('');
+  // NOVO: Estado para guardar o nome do Cliente
+  const [cliente, setCliente] = useState('');
   const [cabecasVendidas, setCabecasVendidas] = useState('');
   const [pesoMedioKg, setPesoMedioKg] = useState('');
   const [precoArroba, setPrecoArroba] = useState('');
@@ -33,6 +35,7 @@ export default function Vendas() {
     // 1. Registra a Venda no estoque/lote
     await addEvent('VENDA_LOTE_REGISTRADA', {
       loteId,
+      cliente, // Salvamos o cliente no histórico da venda também
       cabecasVendidas: parseInt(cabecasVendidas),
       pesoMedioKg: parseFloat(pesoMedioKg),
       precoArroba: parseFloat(precoArroba),
@@ -40,20 +43,23 @@ export default function Vendas() {
       observacao,
     });
 
-    // 2. Automação Corrigida: Agora enviamos exatamente o que o Financeiro precisa!
+    // 2. Automação do Financeiro
     if (formaPagamento === 'a_prazo') {
       await addEvent('CONTAS_RECEBER_CRIADA', {
         id: `cr_${Date.now()}`,
-        cliente: `Venda Lote ${loteId} (${cabecasVendidas} cbç)`, // Financeiro espera 'cliente'
+        cliente: cliente, // <-- Agora envia o nome do cliente real digitado na tela!
         categoria: 'Venda de Animais',
         valor: parseFloat(receitaEstimada),
-        vencimento: dataRecebimento, // Financeiro espera 'vencimento'
-        status: 'Aberto', // Financeiro espera 'Aberto'
-        observacao: observacao ? `Venda a prazo. Obs: ${observacao}` : 'Gerado automaticamente pela venda a prazo'
+        vencimento: dataRecebimento,
+        status: 'Aberto',
+        // Movemos a informação do lote para a observação para não perder o rastro
+        observacao: `Venda Lote ${loteId} (${cabecasVendidas} cbç). ${observacao ? 'Obs: ' + observacao : ''}`
       });
     }
 
+    // Limpa o formulário
     setLoteId('');
+    setCliente(''); // Limpa o cliente
     setCabecasVendidas('');
     setPesoMedioKg('');
     setPrecoArroba('');
@@ -89,6 +95,12 @@ export default function Vendas() {
                     <option key={l.id} value={l.id}>{l.id} ({l.cabecasAtuais} cbç)</option>
                   ))}
                 </select>
+              </div>
+
+              {/* NOVO: Campo Cliente */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Cliente / Frigorífico</label>
+                <input required type="text" value={cliente} onChange={e => setCliente(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white" placeholder="Nome do comprador" />
               </div>
 
               <div>
@@ -136,7 +148,8 @@ export default function Vendas() {
             <div className="pt-4 flex justify-end">
               <button 
                 type="submit" 
-                disabled={!loteId || !cabecasVendidas || !pesoMedioKg || !precoArroba || (formaPagamento === 'a_prazo' && !dataRecebimento)} 
+                // Atualizado para também exigir que o cliente esteja preenchido
+                disabled={!loteId || !cliente || !cabecasVendidas || !pesoMedioKg || !precoArroba || (formaPagamento === 'a_prazo' && !dataRecebimento)} 
                 className="px-6 py-2.5 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Registrar Venda
