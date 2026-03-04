@@ -7,7 +7,6 @@ export default function Racao() {
   const { state, addEvent } = useAppStore();
   const [activeTab, setActiveTab] = useState<'estoque' | 'formulas'>('estoque');
 
-  // Compra Ingrediente State
   const [ingredienteId, setIngredienteId] = useState('');
   const [ingredienteNome, setIngredienteNome] = useState('');
   const [quantidadeKg, setQuantidadeKg] = useState('');
@@ -15,7 +14,6 @@ export default function Racao() {
   const [dataCompra, setDataCompra] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [observacaoCompra, setObservacaoCompra] = useState('');
 
-  // Formula State
   const [loteId, setLoteId] = useState('GERAL');
   const [nomeFormula, setNomeFormula] = useState('');
   const [dataInicio, setDataInicio] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -57,13 +55,10 @@ export default function Racao() {
     setLoteId('GERAL'); setNomeFormula(''); setComposicao([{ ingredienteId: '', percentual: 0 }]);
   };
 
-  // Função NOVO: Excluir a Fórmula
   const handleDeleteFormula = async (id: string, nome: string) => {
-    const confirmDelete = window.confirm(`Tem certeza que deseja excluir a fórmula "${nome}"?`);
+    const confirmDelete = window.confirm(`Tem certeza que deseja excluir a fórmula "${nome}"? O histórico de custos já lançados será mantido.`);
     if (confirmDelete) {
-      await addEvent('FORMULA_EXCLUIDA', {
-        formulaId: id
-      });
+      await addEvent('FORMULA_EXCLUIDA', { formulaId: id });
     }
   };
 
@@ -92,17 +87,17 @@ export default function Racao() {
             <form onSubmit={handleCompra} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Ingrediente</label>
-                <select value={ingredienteId} onChange={e => { setIngredienteId(e.target.value); if(e.target.value) setIngredienteNome(''); }} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                <select value={ingredienteId} onChange={e => { setIngredienteId(e.target.value); if(e.target.value) setIngredienteNome(''); }} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white">
                   <option value="">Novo Ingrediente...</option>
                   {ingredientes.map(i => <option key={i.id} value={i.id}>{i.nome}</option>)}
                 </select>
               </div>
               {!ingredienteId && (
-                <div><label className="block text-sm font-medium text-slate-700 mb-1">Nome do Novo Ingrediente</label><input required type="text" value={ingredienteNome} onChange={e => setIngredienteNome(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" /></div>
+                <div><label className="block text-sm font-medium text-slate-700 mb-1">Nome do Novo Ingrediente</label><input required type="text" value={ingredienteNome} onChange={e => setIngredienteNome(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white" /></div>
               )}
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Quantidade (kg)</label><input required type="number" min="0.1" step="0.1" value={quantidadeKg} onChange={e => setQuantidadeKg(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" /></div>
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Valor Total (R$)</label><input required type="number" min="0.01" step="0.01" value={valorTotal} onChange={e => setValorTotal(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" /></div>
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Data</label><input required type="date" value={dataCompra} onChange={e => setDataCompra(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" /></div>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1">Quantidade (kg)</label><input required type="number" min="0.1" step="0.1" value={quantidadeKg} onChange={e => setQuantidadeKg(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white" /></div>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1">Valor Total (R$)</label><input required type="number" min="0.01" step="0.01" value={valorTotal} onChange={e => setValorTotal(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white" /></div>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1">Data</label><input required type="date" value={dataCompra} onChange={e => setDataCompra(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white" /></div>
               <button type="submit" className="w-full py-2.5 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors">Registrar Compra</button>
             </form>
           </div>
@@ -126,7 +121,7 @@ export default function Racao() {
                     ingredientes.map(ing => (
                       <tr key={ing.id} className="hover:bg-slate-50">
                         <td className="px-6 py-4 font-medium text-slate-900">{ing.nome}</td>
-                        <td className="px-6 py-4 text-right font-mono">{ing.quantidadeKg.toFixed(2)}</td>
+                        <td className={`px-6 py-4 text-right font-mono ${ing.quantidadeKg <= 0 ? 'text-rose-500 font-semibold' : ''}`}>{ing.quantidadeKg.toFixed(2)}</td>
                         <td className="px-6 py-4 text-right font-mono text-slate-500">R$ {ing.ultimoCustoKg.toFixed(4)}</td>
                         <td className="px-6 py-4 text-right font-mono text-emerald-600">R$ {(ing.quantidadeKg * ing.ultimoCustoKg).toFixed(2)}</td>
                       </tr>
@@ -146,13 +141,12 @@ export default function Racao() {
             <form onSubmit={handleFormula} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Vincular a um Lote</label>
-                <select value={loteId} onChange={e => setLoteId(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                <select value={loteId} onChange={e => setLoteId(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white">
                   <option value="GERAL">Fórmula Geral (Todos os lotes)</option>
                   {lotesAtivos.map(l => <option key={l.id} value={l.id}>Apenas Lote: {l.id} ({l.cabecasAtuais} cbç)</option>)}
                 </select>
               </div>
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Nome da Fórmula</label><input required type="text" value={nomeFormula} onChange={e => setNomeFormula(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" /></div>
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Data Início</label><input required type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" /></div>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1">Nome da Fórmula</label><input required type="text" value={nomeFormula} onChange={e => setNomeFormula(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white" /></div>
               
               <div className="pt-2 border-t border-slate-200">
                 <label className="block text-sm font-medium text-slate-700 mb-2">Composição (%)</label>
@@ -160,13 +154,13 @@ export default function Racao() {
                   <div key={index} className="flex gap-2 mb-2">
                     <select required value={item.ingredienteId} onChange={e => {
                       const newComp = [...composicao]; newComp[index].ingredienteId = e.target.value; setComposicao(newComp);
-                    }} className="flex-1 p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm">
+                    }} className="flex-1 p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm bg-white">
                       <option value="">Ingrediente...</option>
                       {ingredientes.map(i => <option key={i.id} value={i.id}>{i.nome}</option>)}
                     </select>
                     <input required type="number" min="0" max="100" step="0.1" value={item.percentual} onChange={e => {
                       const newComp = [...composicao]; newComp[index].percentual = parseFloat(e.target.value) || 0; setComposicao(newComp);
-                    }} className="w-20 p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm text-right" placeholder="%" />
+                    }} className="w-20 p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm text-right bg-white" placeholder="%" />
                     <button type="button" onClick={() => {
                       const newComp = composicao.filter((_, i) => i !== index); setComposicao(newComp);
                     }} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Plus className="w-4 h-4 rotate-45" /></button>
@@ -192,46 +186,43 @@ export default function Racao() {
               <table className="w-full text-sm text-left">
                 <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
                   <tr>
-                    <th className="px-6 py-4 font-medium">Lote</th>
-                    <th className="px-6 py-4 font-medium">Fórmula</th>
-                    <th className="px-6 py-4 font-medium">Data Início</th>
-                    <th className="px-6 py-4 font-medium">Composição</th>
-                    <th className="px-6 py-4 font-medium text-center">Ações</th>
+                    <th className="px-4 py-4 font-medium">Lote</th>
+                    <th className="px-4 py-4 font-medium">Fórmula</th>
+                    <th className="px-4 py-4 font-medium text-right">Consumo Total</th>
+                    <th className="px-4 py-4 font-medium">Composição</th>
+                    <th className="px-4 py-4 font-medium text-center">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {formulas.length === 0 ? (
-                    <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500">Nenhuma fórmula cadastrada.</td></tr>
+                    <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">Nenhuma fórmula cadastrada.</td></tr>
                   ) : (
                     formulas.map(f => (
                       <tr key={f.id} className="hover:bg-slate-50">
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-4">
                           {f.loteId === 'GERAL' ? (
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-100 text-blue-800">Geral</span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">Geral</span>
                           ) : (
                             <span className="font-medium text-slate-900">{f.loteId}</span>
                           )}
                         </td>
-                        <td className="px-6 py-4 font-medium text-slate-900">{f.nome}</td>
-                        <td className="px-6 py-4">{format(new Date(f.dataInicio), 'dd/MM/yyyy')}</td>
-                        <td className="px-6 py-4">
-                          <div className="flex flex-wrap gap-2">
+                        <td className="px-4 py-4 font-medium text-slate-900">{f.nome}</td>
+                        <td className="px-4 py-4 text-right font-mono text-emerald-700 bg-emerald-50/30">
+                          {/* NOVO: Mostrando a quantidade total já gasta com essa fórmula */}
+                          {(f.quantidadeUtilizadaKg || 0).toLocaleString('pt-BR')} kg
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex flex-wrap gap-1">
                             {f.composicao.map((c, i) => (
-                              <span key={i} className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                              <span key={i} className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
                                 {state.ingredientes[c.ingredienteId]?.nome}: {c.percentual}%
                               </span>
                             ))}
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-4">
                           <div className="flex justify-center">
-                            <button 
-                              onClick={() => handleDeleteFormula(f.id, f.nome)}
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                              title="Excluir Fórmula"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            <button onClick={() => handleDeleteFormula(f.id, f.nome)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Excluir Fórmula"><Trash2 className="w-4 h-4" /></button>
                           </div>
                         </td>
                       </tr>
