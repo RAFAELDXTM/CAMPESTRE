@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store';
-import { Plus, SplitSquareHorizontal, Skull, Eye, Trash2, X } from 'lucide-react';
+import { Plus, SplitSquareHorizontal, Skull, Eye, Trash2, X, Clock } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 
 export default function Lotes() {
-  const { state, addEvent } = useAppStore();
+  const { state, events, addEvent } = useAppStore();
   const [isCreating, setIsCreating] = useState(false);
   const [isSubdividing, setIsSubdividing] = useState(false);
   const [isMortalidade, setIsMortalidade] = useState(false);
@@ -81,11 +81,48 @@ export default function Lotes() {
   const lotes = (Object.values(state.lotes) as any[]);
   const loteDetalhes = loteDetalhesId ? state.lotes[loteDetalhesId] : null;
 
-  // Cálculos de Desempenho (Dias e Custo) se o modal estiver aberto
+  // Cálculos de Desempenho
   const diasConfinamento = loteDetalhes ? Math.max(1, differenceInDays(new Date(), new Date(loteDetalhes.dataEntrada))) : 1;
-  const custoOperacional = loteDetalhes ? (loteDetalhes.custoRacao + loteDetalhes.custoDireto) : 0;
+  // Agora o Custo Operacional Total inclui a fatia da estrutura rateada
+  const custoOperacional = loteDetalhes ? (loteDetalhes.custoRacao + loteDetalhes.custoDireto + (loteDetalhes.estruturaRateada || 0)) : 0;
   const custoOperacionalDia = custoOperacional / diasConfinamento;
   const custoCabecaDia = loteDetalhes && loteDetalhes.cabecasAtuais > 0 ? (custoOperacionalDia / loteDetalhes.cabecasAtuais) : 0;
+
+  // Filtrar histórico de eventos do lote selecionado
+  const historicoLote = events.filter(e => {
+    if (!e.payload) return false;
+    const p = e.payload as any;
+    return p.loteId === loteDetalhesId || p.loteOrigemId === loteDetalhesId || p.loteNovoId === loteDetalhesId;
+  }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+  // Tradutor de nomes de eventos
+  const formatEventName = (type: string) => {
+    const map: Record<string, string> = {
+      'LOTE_CRIADO': 'Entrada do Lote',
+      'LOTE_SUBDIVIDIDO': 'Subdivisão de Lote',
+      'MORTALIDADE_REGISTRADA': 'Baixa/Mortalidade',
+      'FORMULA_LOTE_CRIADA': 'Fórmula Atribuída',
+      'TRATO_DIARIO_REGISTRADO': 'Trato Diário',
+      'DESPESA_LOTE_LANCADA': 'Despesa Direta',
+      'VENDA_LOTE_REGISTRADA': 'Venda de Animais',
+      'PESAGEM_REGISTRADA': 'Pesagem',
+    };
+    return map[type] || type;
+  };
+
+  // Formatador de detalhes rápidos do histórico
+  const getEventBrief = (ev: any) => {
+    const p = ev.payload;
+    switch (ev.type) {
+      case 'LOTE_CRIADO': return `${p.cabecas} cbç | ${p.pesoMedioEntrada}kg | R$${p.precoCompraArroba}/@`;
+      case 'TRATO_DIARIO_REGISTRADO': return `${p.totalRacaoKg} kg de ração`;
+      case 'MORTALIDADE_REGISTRADA': return `${p.cabecas} cabeça(s) perdida(s)`;
+      case 'VENDA_LOTE_REGISTRADA': return `Vendidas ${p.cabecasVendidas} cbç | ${p.pesoMedioKg}kg`;
+      case 'DESPESA_LOTE_LANCADA': return `${p.categoria} - R$ ${p.valor.toFixed(2)}`;
+      case 'LOTE_SUBDIVIDIDO': return `Transferidas ${p.cabecasTransferidas} cbç`;
+      default: return '-';
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -234,7 +271,7 @@ export default function Lotes() {
             <div className="p-6 overflow-y-auto">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 
-                {/* Bloco NOVO: Indicadores de Desempenho e Tempo */}
+                {/* Indicadores */}
                 <div className="bg-sky-50/50 p-4 rounded-xl border border-sky-100/50 sm:col-span-2">
                   <h4 className="text-sm font-semibold text-sky-900 mb-3 uppercase tracking-wider">Indicadores de Desempenho</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
@@ -259,7 +296,9 @@ export default function Lotes() {
                     <div className="flex justify-between items-center border-b border-indigo-100/50 pb-2"><span className="text-indigo-700/80">Cabeças Iniciais</span><span className="font-medium text-indigo-950">{loteDetalhes.cabecasIniciais}</span></div>
                     <div className="flex justify-between items-center border-b border-indigo-100/50 pb-2"><span className="text-indigo-700/80">Cabeças Atuais</span><span className="font-bold text-indigo-950">{loteDetalhes.cabecasAtuais}</span></div>
                     <div className="flex justify-between items-center border-b border-indigo-100/50 pb-2"><span className="text-indigo-700/80">Vendidas / Mortas</span><span className="font-medium text-indigo-950">{loteDetalhes.cabecasVendidas} / {loteDetalhes.cabecasIniciais - loteDetalhes.cabecasAtuais - loteDetalhes.cabecasVendidas}</span></div>
-                    <div className="flex justify-between items-center"><span className="text-indigo-700/80">Peso Médio Inicial</span><span className="font-medium text-indigo-950">{loteDetalhes.pesoMedioEntrada} kg</span></div>
+                    <div className="flex justify-between items-center pb-2 border-b border-indigo-100/50"><span className="text-indigo-700/80">Peso Médio Inicial</span><span className="font-medium text-indigo-950">{loteDetalhes.pesoMedioEntrada} kg</span></div>
+                    {/* NOVO: Consumo de Ração em KG */}
+                    <div className="flex justify-between items-center"><span className="text-indigo-700/80 font-medium">Consumo Total de Ração</span><span className="font-bold text-indigo-950 bg-white px-2 py-0.5 rounded text-xs border border-indigo-200">{(loteDetalhes.quantidadeRacaoKg || 0).toLocaleString('pt-BR')} kg</span></div>
                   </div>
                 </div>
 
@@ -269,7 +308,10 @@ export default function Lotes() {
                     <div className="flex justify-between items-center border-b border-emerald-100/50 pb-2"><span className="text-emerald-700/80">Custo de Aquisição</span><span className="font-medium text-emerald-950">R$ {loteDetalhes.custoCompra.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
                     <div className="flex justify-between items-center border-b border-emerald-100/50 pb-2"><span className="text-emerald-700/80">Custo de Ração</span><span className="font-medium text-emerald-950">R$ {loteDetalhes.custoRacao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
                     <div className="flex justify-between items-center border-b border-emerald-100/50 pb-2"><span className="text-emerald-700/80">Despesas Diretas</span><span className="font-medium text-emerald-950">R$ {loteDetalhes.custoDireto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
-                    <div className="flex justify-between items-center pt-1"><span className="font-semibold text-emerald-800">Custo Total Atual</span><span className="font-bold text-emerald-700">R$ {(loteDetalhes.custoCompra + loteDetalhes.custoRacao + loteDetalhes.custoDireto + loteDetalhes.estruturaRateada).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+                    {/* NOVO: Estrutura Rateada */}
+                    <div className="flex justify-between items-center border-b border-emerald-100/50 pb-2"><span className="text-emerald-700/80">Estrutura Rateada</span><span className="font-medium text-emerald-950 text-xs bg-emerald-100/50 px-2 py-0.5 rounded">+ R$ {(loteDetalhes.estruturaRateada || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+                    
+                    <div className="flex justify-between items-center pt-1"><span className="font-semibold text-emerald-800">Custo Total Atual</span><span className="font-bold text-emerald-700">R$ {(loteDetalhes.custoCompra + loteDetalhes.custoRacao + loteDetalhes.custoDireto + (loteDetalhes.estruturaRateada || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
                   </div>
                 </div>
 
@@ -286,6 +328,45 @@ export default function Lotes() {
                     <p className="text-sm text-amber-950 whitespace-pre-wrap">{loteDetalhes.observacao}</p>
                   </div>
                 )}
+
+                {/* Bloco de Histórico de Lançamentos */}
+                <div className="sm:col-span-2 bg-white rounded-xl border border-slate-200 overflow-hidden mt-2">
+                  <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-slate-500" />
+                    <h4 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Histórico de Lançamentos</h4>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    <table className="w-full text-sm text-left">
+                      <thead className="text-xs text-slate-500 uppercase sticky top-0 bg-white/95 backdrop-blur-sm border-b border-slate-100">
+                        <tr>
+                          <th className="px-4 py-3 font-medium">Data/Hora</th>
+                          <th className="px-4 py-3 font-medium">Evento</th>
+                          <th className="px-4 py-3 font-medium text-right">Detalhes</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {historicoLote.length === 0 ? (
+                          <tr><td colSpan={3} className="px-4 py-6 text-center text-slate-500">Nenhum lançamento encontrado.</td></tr>
+                        ) : (
+                          historicoLote.map(ev => (
+                            <tr key={ev.id} className="hover:bg-slate-50">
+                              <td className="px-4 py-3 text-slate-500 text-xs">
+                                {format(new Date(ev.timestamp), 'dd/MM/yyyy HH:mm')}
+                              </td>
+                              <td className="px-4 py-3 font-medium text-slate-800 text-xs">
+                                {formatEventName(ev.type)}
+                              </td>
+                              <td className="px-4 py-3 text-right text-slate-500 text-xs">
+                                {getEventBrief(ev)}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                
               </div>
             </div>
             
