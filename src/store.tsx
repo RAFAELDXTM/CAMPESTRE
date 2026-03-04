@@ -9,6 +9,8 @@ interface AppContextType {
   events: AppEvent[];
   loading: boolean;
   addEvent: (type: string, payload: any) => Promise<void>;
+  updateEvent: (id: string, newPayload: any) => Promise<void>;
+  deleteEvent: (id: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -56,10 +58,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [fetchEvents]);
 
   const addEvent = async (type: string, payload: any) => {
-    if (!user) {
-      console.error("Não é possível salvar: Usuário não está logado");
-      return;
-    }
+    if (!user) return;
 
     const newEvent: AppEvent = {
       id: uuidv4(),
@@ -74,12 +73,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     if (supabase) {
       try {
-        const { error } = await supabase
-          .from('events')
-          .insert([newEvent]);
-          
+        const { error } = await supabase.from('events').insert([newEvent]);
         if (error) {
-          console.error('Error saving event to Supabase:', error);
+          console.error('Error saving event:', error);
           setEvents((prev) => prev.filter(e => e.id !== newEvent.id));
         }
       } catch (error) {
@@ -88,10 +84,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // NOVA FUNÇÃO: Editar um evento existente
+  const updateEvent = async (id: string, newPayload: any) => {
+    if (!user) return;
+    
+    // Atualiza na tela instantaneamente
+    setEvents((prev) => prev.map(e => e.id === id ? { ...e, payload: newPayload } : e));
+    
+    if (supabase) {
+      try {
+        const { error } = await supabase.from('events').update({ payload: newPayload }).eq('id', id);
+        if (error) console.error('Error updating event:', error);
+      } catch (error) {
+        console.error('Error updating event:', error);
+      }
+    }
+  };
+
+  // NOVA FUNÇÃO: Excluir um evento
+  const deleteEvent = async (id: string) => {
+    if (!user) return;
+    
+    // Remove da tela instantaneamente
+    setEvents((prev) => prev.filter(e => e.id !== id));
+    
+    if (supabase) {
+      try {
+        const { error } = await supabase.from('events').delete().eq('id', id);
+        if (error) console.error('Error deleting event:', error);
+      } catch (error) {
+        console.error('Error deleting event:', error);
+      }
+    }
+  };
+
   const state = computeState(events);
 
   return (
-    <AppContext.Provider value={{ state, events, loading, addEvent }}>
+    <AppContext.Provider value={{ state, events, loading, addEvent, updateEvent, deleteEvent }}>
       {children}
     </AppContext.Provider>
   );
@@ -99,9 +129,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
 export function useAppStore() {
   const context = useContext(AppContext);
-  if (!context) {
-    throw new Error('useAppStore must be used within an AppProvider');
-  }
+  if (!context) throw new Error('useAppStore must be used within an AppProvider');
   return context;
 }
 
@@ -141,6 +169,7 @@ function computeState(events: AppEvent[]): FarmState {
           estruturaRateada: 0,
           receitaRealizada: 0,
           cabecasVendidas: 0,
+          quantidadeRacaoKg: 0, // NOVO: Preparando para o KG
           status: 'ATIVO',
           observacao: p.observacao, 
         };
@@ -156,7 +185,6 @@ function computeState(events: AppEvent[]): FarmState {
         const loteOrigem = state.lotes[p.loteOrigemId];
         if (loteOrigem) {
           loteOrigem.cabecasAtuais -= p.cabecasTransferidas;
-          
           const prop = p.cabecasTransferidas / loteOrigem.cabecasIniciais;
           const custoCompraTransf = loteOrigem.custoCompra * prop;
           
@@ -173,6 +201,7 @@ function computeState(events: AppEvent[]): FarmState {
             estruturaRateada: 0,
             receitaRealizada: 0,
             cabecasVendidas: 0,
+            quantidadeRacaoKg: 0, // NOVO: Preparando para o KG
             status: 'ATIVO',
             observacao: p.observacao,
           };
@@ -211,10 +240,10 @@ function computeState(events: AppEvent[]): FarmState {
           nome: p.nomeFormula,
           dataInicio: p.dataInicio,
           composicao: p.composicao,
+          quantidadeUtilizadaKg: 0, // NOVO: Preparando para o KG
         };
         break;
       }
-      // NOVO EVENTO: Permite que o sistema apague a fórmula da memória
       case 'FORMULA_EXCLUIDA': {
         const p = payload as any;
         delete state.formulas[p.formulaId];
@@ -226,6 +255,10 @@ function computeState(events: AppEvent[]): FarmState {
         const formula = state.formulas[p.formulaId];
         
         if (lote && formula) {
+          // NOVO: Somar a quantidade de KGs física
+          lote.quantidadeRacaoKg = (lote.quantidadeRacaoKg || 0) + p.totalRacaoKg;
+          formula.quantidadeUtilizadaKg = (formula.quantidadeUtilizadaKg || 0) + p.totalRacaoKg;
+
           let custoTrato = 0;
           for (const item of formula.composicao) {
             const ing = state.ingredientes[item.ingredienteId];
@@ -264,9 +297,7 @@ function computeState(events: AppEvent[]): FarmState {
           const receita = arrobas * p.precoArroba * p.cabecasVendidas;
           lote.receitaRealizada += receita;
           
-          if (lote.cabecasAtuais <= 0) {
-            lote.status = 'ENCERRADO';
-          }
+          if (lote.cabecasAtuais <= 0) lote.status = 'ENCERRADO';
         }
         break;
       }
@@ -321,9 +352,7 @@ function computeState(events: AppEvent[]): FarmState {
       }
       case 'CONTAS_PAGAR_CANCELADA': {
         const p = payload as any;
-        if (state.contasPagar[p.id]) {
-          state.contasPagar[p.id].status = 'Cancelado';
-        }
+        if (state.contasPagar[p.id]) state.contasPagar[p.id].status = 'Cancelado';
         break;
       }
       case 'CONTAS_RECEBER_CRIADA': {
@@ -342,9 +371,7 @@ function computeState(events: AppEvent[]): FarmState {
       }
       case 'CONTAS_RECEBER_CANCELADA': {
         const p = payload as any;
-        if (state.contasReceber[p.id]) {
-          state.contasReceber[p.id].status = 'Cancelado';
-        }
+        if (state.contasReceber[p.id]) state.contasReceber[p.id].status = 'Cancelado';
         break;
       }
       case 'TRANSACAO_CAIXA_CRIADA': {
@@ -356,6 +383,23 @@ function computeState(events: AppEvent[]): FarmState {
         const p = payload as any;
         state.simulacoesVenda.push({ ...p });
         break;
+      }
+    }
+  }
+
+  // CÁLCULO MÁGICO DO RATEIO: Pega as despesas gerais e divide pelos lotes ativos
+  let totalCabecasAtivas = 0;
+  for (const id in state.lotes) {
+    if (state.lotes[id].status === 'ATIVO') {
+      totalCabecasAtivas += state.lotes[id].cabecasAtuais;
+    }
+  }
+  if (totalCabecasAtivas > 0 && state.despesasGerais > 0) {
+    const despesaPorCabeca = state.despesasGerais / totalCabecasAtivas;
+    for (const id in state.lotes) {
+      if (state.lotes[id].status === 'ATIVO') {
+        // Atribui ao lote a fatia correspondente ao seu tamanho
+        state.lotes[id].estruturaRateada = state.lotes[id].cabecasAtuais * despesaPorCabeca;
       }
     }
   }
