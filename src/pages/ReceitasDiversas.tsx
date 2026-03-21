@@ -24,9 +24,9 @@ export default function ReceitasDiversas() {
   const [quantidade, setQuantidade] = useState('');
   const [observacao, setObservacao] = useState('');
 
-  const lotesAtivos = (Object.values(state.lotes) as any[]).filter(l => l.status === 'ATIVO');
-  const ingredientes = (Object.values(state.ingredientes) as any[]);
-  const formulas = (Object.values(state.formulas) as any[]);
+  const lotesAtivos = Object.values(state.lotes).filter(l => l.status === 'ATIVO');
+  const ingredientes = Object.values(state.ingredientes);
+  const formulas = Object.values(state.formulas);
 
   const isVendaInsumo = categoria === 'Venda de Insumo';
   const isVendaRacao = categoria === 'Venda de Ração';

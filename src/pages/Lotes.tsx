@@ -78,7 +78,7 @@ export default function Lotes() {
     setMortalidadeLoteId(''); setMortalidadeCabecas('');
   };
 
-  const lotes = (Object.values(state.lotes) as any[]);
+  const lotes = Object.values(state.lotes);
   const loteDetalhes = loteDetalhesId ? state.lotes[loteDetalhesId] : null;
 
   // Cálculos de Desempenho
@@ -90,9 +90,8 @@ export default function Lotes() {
 
   // Filtrar histórico de eventos do lote selecionado
   const historicoLote = events.filter(e => {
-    if (!e.payload) return false;
-    const p = e.payload as any;
-    return p.loteId === loteDetalhesId || p.loteOrigemId === loteDetalhesId || p.loteNovoId === loteDetalhesId;
+    const p = e.payload as Record<string, unknown>;
+    return p['loteId'] === loteDetalhesId || p['loteOrigemId'] === loteDetalhesId || p['loteNovoId'] === loteDetalhesId;
   }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   // Tradutor de nomes de eventos

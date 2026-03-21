@@ -14,7 +14,7 @@ export default function Pesagem() {
   
   const [selectedLote, setSelectedLote] = useState<string | null>(null);
 
-  const lotesAtivos = (Object.values(state.lotes) as any[]).filter(l => l.status === 'ATIVO');
+  const lotesAtivos = Object.values(state.lotes).filter(l => l.status === 'ATIVO');
   const pesagens = state.pesagens.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -85,7 +85,7 @@ export default function Pesagem() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Método</label>
-                <select required value={metodo} onChange={e => setMetodo(e.target.value as any)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                <select required value={metodo} onChange={e => setMetodo(e.target.value as 'Balança' | 'Estimado' | 'Outro')} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
                   <option value="Balança">Balança</option>
                   <option value="Estimado">Estimado</option>
                   <option value="Outro">Outro</option>

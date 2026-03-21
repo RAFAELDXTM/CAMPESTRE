@@ -10,7 +10,7 @@ export default function Relatorios() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'resumo' | 'custos' | 'pesagens' | 'vendas'>('resumo');
 
-  const lotes = (Object.values(state.lotes) as any[]);
+  const lotes = Object.values(state.lotes);
   const lote = selectedLoteId ? state.lotes[selectedLoteId] : null;
 
   const totalCabecasAtivas = lotes.reduce((acc, l) => acc + (l.status === 'ATIVO' ? l.cabecasAtuais : 0), 0);
@@ -125,7 +125,7 @@ export default function Relatorios() {
               {['resumo', 'custos', 'pesagens', 'vendas'].map((tab) => (
                 <button
                   key={tab}
-                  onClick={() => setActiveTab(tab as any)}
+                  onClick={() => setActiveTab(tab as 'resumo' | 'custos' | 'pesagens' | 'vendas')}
                   className={`py-4 px-1 font-medium text-sm transition-colors capitalize ${
                     activeTab === tab
                       ? 'border-b-2 border-indigo-600 text-indigo-700'
