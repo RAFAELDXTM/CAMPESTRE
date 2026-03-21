@@ -23,7 +23,7 @@ export default function Login() {
 
     try {
       if (!supabase) {
-        throw new Error('Supabase não está configurado. Verifique as variáveis de ambiente.');
+        throw new Error('O servidor de autenticação não está configurado. Entre em contato com o suporte.');
       }
 
       if (isSignUp) {
@@ -49,12 +49,14 @@ export default function Login() {
       let msg = err.message || 'Erro de autenticação';
       if (msg.includes('Invalid login credentials')) {
         msg = 'Email ou senha incorretos. Se você ainda não tem uma conta, clique em "Cadastre-se" abaixo.';
-      } else if (msg.includes('Failed to fetch')) {
-        msg = 'Erro de conexão com o servidor. Verifique as configurações do Supabase.';
+      } else if (msg.includes('Failed to fetch') || msg.includes('Load failed') || msg.includes('NetworkError') || msg.includes('fetch')) {
+        msg = 'Erro de conexão com o servidor de autenticação. Verifique sua internet ou tente novamente em instantes.';
       } else if (msg.includes('User already registered')) {
         msg = 'Este email já está cadastrado.';
       } else if (msg.includes('Password should be at least')) {
         msg = 'A senha deve ter pelo menos 6 caracteres.';
+      } else if (msg.includes('Email not confirmed')) {
+        msg = 'Confirme seu e-mail antes de fazer login. Verifique sua caixa de entrada.';
       }
       setError(msg);
     } finally {
