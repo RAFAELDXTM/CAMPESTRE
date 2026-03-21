@@ -14,7 +14,7 @@ export default function AnaliseAvancada() {
   const [pesoEstimado, setPesoEstimado] = useState('');
   const [precoEstimado, setPrecoEstimado] = useState('');
 
-  const lotesAtivos = (Object.values(state.lotes) as any[]).filter(l => l.status === 'ATIVO');
+  const lotesAtivos = Object.values(state.lotes).filter(l => l.status === 'ATIVO');
   const loteSelecionado = loteId ? state.lotes[loteId] : null;
 
   // Auto-fill weight based on latest weighing when lote changes
@@ -87,7 +87,7 @@ export default function AnaliseAvancada() {
     alert('Simulação salva com sucesso!');
   };
 
-  const lotesEncerrados = (Object.values(state.lotes) as any[]).filter(l => l.status === 'ENCERRADO');
+  const lotesEncerrados = Object.values(state.lotes).filter(l => l.status === 'ENCERRADO');
   const rankingLucro = [...lotesEncerrados].sort((a, b) => {
     const lucroA = a.receitaRealizada - (a.custoCompra + a.custoRacao + a.custoDireto + (a.estruturaRateada || 0));
     const lucroB = b.receitaRealizada - (b.custoCompra + b.custoRacao + b.custoDireto + (b.estruturaRateada || 0));

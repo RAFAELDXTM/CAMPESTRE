@@ -30,8 +30,8 @@ export default function Financeiro() {
   const [cDescricao, setCDescricao] = useState('');
   const [cContaId, setCContaId] = useState('acc_cash');
 
-  const contasPagar = (Object.values(state.contasPagar) as any[]).sort((a, b) => new Date(a.vencimento).getTime() - new Date(b.vencimento).getTime());
-  const contasReceber = (Object.values(state.contasReceber) as any[]).sort((a, b) => new Date(a.vencimento).getTime() - new Date(b.vencimento).getTime());
+  const contasPagar = Object.values(state.contasPagar).sort((a, b) => new Date(a.vencimento).getTime() - new Date(b.vencimento).getTime());
+  const contasReceber = Object.values(state.contasReceber).sort((a, b) => new Date(a.vencimento).getTime() - new Date(b.vencimento).getTime());
   const transacoes = [...state.cashTransactions].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
 
   const totalPagarAberto = contasPagar.filter(c => c.status === 'Aberto').reduce((acc, c) => acc + c.valor, 0);
@@ -374,7 +374,7 @@ export default function Financeiro() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Direção</label>
-                <select required value={cDirecao} onChange={e => setCDirecao(e.target.value as any)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                <select required value={cDirecao} onChange={e => setCDirecao(e.target.value as 'in' | 'out')} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
                   <option value="in">Entrada (+)</option>
                   <option value="out">Saída (-)</option>
                 </select>
@@ -382,7 +382,7 @@ export default function Financeiro() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Conta</label>
                 <select required value={cContaId} onChange={e => setCContaId(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
-                  {(Object.values(state.financeAccounts) as any[]).map(a => (
+                  {Object.values(state.financeAccounts).map(a => (
                     <option key={a.id} value={a.id}>{a.name}</option>
                   ))}
                 </select>

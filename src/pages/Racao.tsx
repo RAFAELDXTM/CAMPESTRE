@@ -19,9 +19,9 @@ export default function Racao() {
   const [dataInicio, setDataInicio] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [composicao, setComposicao] = useState<{ ingredienteId: string; percentual: number }[]>([{ ingredienteId: '', percentual: 0 }]);
 
-  const ingredientes = (Object.values(state.ingredientes) as any[]);
-  const formulas = (Object.values(state.formulas) as any[]);
-  const lotesAtivos = (Object.values(state.lotes) as any[]).filter(l => l.status === 'ATIVO');
+  const ingredientes = Object.values(state.ingredientes);
+  const formulas = Object.values(state.formulas);
+  const lotesAtivos = Object.values(state.lotes).filter(l => l.status === 'ATIVO');
 
   const handleCompra = async (e: React.FormEvent) => {
     e.preventDefault();

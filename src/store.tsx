@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
-import { AppEvent, FarmState, LoteState, IngredienteState, FormulaState } from './types';
+import { AppEvent, EventPayloadMap, EventType, FarmState, LoteState, IngredienteState, FormulaState } from './types';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from './lib/supabase';
 import { useAuth } from './contexts/AuthContext';
@@ -8,8 +8,8 @@ interface AppContextType {
   state: FarmState;
   events: AppEvent[];
   loading: boolean;
-  addEvent: (type: string, payload: any) => Promise<void>;
-  updateEvent: (id: string, newPayload: any) => Promise<void>;
+  addEvent: <T extends EventType>(type: T, payload: EventPayloadMap[T]) => Promise<void>;
+  updateEvent: (id: string, newPayload: EventPayloadMap[EventType]) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
 }
 
@@ -18,7 +18,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   const { user } = useAuth();
 
   const fetchEvents = useCallback(async () => {
@@ -32,22 +32,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const { data, error } = await supabase
           .from('events')
           .select('*')
-          .eq('user_id', user.id) 
+          .eq('user_id', user.id)
           .order('timestamp', { ascending: true });
-          
+
         if (error) throw error;
-        
+
         if (data && data.length > 0) {
           setEvents(data as AppEvent[]);
         } else {
-          setEvents([]); 
+          setEvents([]);
         }
       } else {
         setEvents([]);
       }
     } catch (error) {
       console.error('Error fetching events:', error);
-      setEvents([]); 
+      setEvents([]);
     } finally {
       setLoading(false);
     }
@@ -57,17 +57,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     fetchEvents();
   }, [fetchEvents]);
 
-  const addEvent = async (type: string, payload: any) => {
+  const addEvent = async <T extends EventType>(type: T, payload: EventPayloadMap[T]) => {
     if (!user) return;
 
-    const newEvent: AppEvent = {
+    const newEvent = {
       id: uuidv4(),
       farm_id: 'farm_1',
       user_id: user.id,
-      type: type as any,
+      type,
       payload,
       timestamp: new Date().toISOString(),
-    };
+    } as AppEvent;
 
     setEvents((prev) => [...prev, newEvent]);
 
@@ -84,13 +84,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // NOVA FUNÇÃO: Editar um evento existente
-  const updateEvent = async (id: string, newPayload: any) => {
+  const updateEvent = async (id: string, newPayload: EventPayloadMap[EventType]) => {
     if (!user) return;
-    
-    // Atualiza na tela instantaneamente
-    setEvents((prev) => prev.map(e => e.id === id ? { ...e, payload: newPayload } : e));
-    
+
+    setEvents((prev) => prev.map(e => e.id === id ? { ...e, payload: newPayload } as AppEvent : e));
+
     if (supabase) {
       try {
         const { error } = await supabase.from('events').update({ payload: newPayload }).eq('id', id);
@@ -101,13 +99,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // NOVA FUNÇÃO: Excluir um evento
   const deleteEvent = async (id: string) => {
     if (!user) return;
-    
-    // Remove da tela instantaneamente
+
     setEvents((prev) => prev.filter(e => e.id !== id));
-    
+
     if (supabase) {
       try {
         const { error } = await supabase.from('events').delete().eq('id', id);
@@ -151,11 +147,9 @@ function computeState(events: AppEvent[]): FarmState {
   };
 
   for (const event of events) {
-    const { type, payload } = event;
-
-    switch (type) {
+    switch (event.type) {
       case 'LOTE_CRIADO': {
-        const p = payload as any;
+        const p = event.payload;
         state.lotes[p.loteId] = {
           id: p.loteId,
           dataEntrada: p.dataEntrada,
@@ -163,31 +157,33 @@ function computeState(events: AppEvent[]): FarmState {
           cabecasAtuais: p.cabecas,
           pesoMedioEntrada: p.pesoMedioEntrada,
           precoCompraArroba: p.precoCompraArroba,
-          custoCompra: (p.pesoMedioEntrada / 30) * p.precoCompraArroba * p.cabecas,
+          custoCompra: p.cabecas > 0 ? (p.pesoMedioEntrada / 30) * p.precoCompraArroba * p.cabecas : 0,
           custoRacao: 0,
           custoDireto: 0,
           estruturaRateada: 0,
           receitaRealizada: 0,
           cabecasVendidas: 0,
-          quantidadeRacaoKg: 0, // NOVO: Preparando para o KG
+          quantidadeRacaoKg: 0,
           status: 'ATIVO',
-          observacao: p.observacao, 
+          observacao: p.observacao,
         };
         break;
       }
       case 'LOTE_EXCLUIDO': {
-        const p = payload as any;
+        const p = event.payload;
         delete state.lotes[p.loteId];
         break;
       }
       case 'LOTE_SUBDIVIDIDO': {
-        const p = payload as any;
+        const p = event.payload;
         const loteOrigem = state.lotes[p.loteOrigemId];
         if (loteOrigem) {
           loteOrigem.cabecasAtuais -= p.cabecasTransferidas;
-          const prop = p.cabecasTransferidas / loteOrigem.cabecasIniciais;
+          const prop = loteOrigem.cabecasIniciais > 0
+            ? p.cabecasTransferidas / loteOrigem.cabecasIniciais
+            : 0;
           const custoCompraTransf = loteOrigem.custoCompra * prop;
-          
+
           state.lotes[p.loteNovoId] = {
             id: p.loteNovoId,
             dataEntrada: p.data,
@@ -201,7 +197,7 @@ function computeState(events: AppEvent[]): FarmState {
             estruturaRateada: 0,
             receitaRealizada: 0,
             cabecasVendidas: 0,
-            quantidadeRacaoKg: 0, // NOVO: Preparando para o KG
+            quantidadeRacaoKg: 0,
             status: 'ATIVO',
             observacao: p.observacao,
           };
@@ -209,14 +205,15 @@ function computeState(events: AppEvent[]): FarmState {
         break;
       }
       case 'MORTALIDADE_REGISTRADA': {
-        const p = payload as any;
-        if (state.lotes[p.loteId]) {
-          state.lotes[p.loteId].cabecasAtuais -= p.cabecas;
+        const p = event.payload;
+        const lote = state.lotes[p.loteId];
+        if (lote) {
+          lote.cabecasAtuais = Math.max(0, lote.cabecasAtuais - p.cabecas);
         }
         break;
       }
       case 'COMPRA_INGREDIENTE': {
-        const p = payload as any;
+        const p = event.payload;
         if (!state.ingredientes[p.ingredienteId]) {
           state.ingredientes[p.ingredienteId] = {
             id: p.ingredienteId,
@@ -229,35 +226,34 @@ function computeState(events: AppEvent[]): FarmState {
         const ing = state.ingredientes[p.ingredienteId];
         ing.quantidadeKg += p.quantidadeKg;
         ing.valorTotal += p.valorTotal;
-        ing.ultimoCustoKg = p.valorTotal / p.quantidadeKg;
+        ing.ultimoCustoKg = p.quantidadeKg > 0 ? p.valorTotal / p.quantidadeKg : 0;
         break;
       }
       case 'FORMULA_LOTE_CRIADA': {
-        const p = payload as any;
+        const p = event.payload;
         state.formulas[p.formulaId] = {
           id: p.formulaId,
           loteId: p.loteId,
           nome: p.nomeFormula,
           dataInicio: p.dataInicio,
           composicao: p.composicao,
-          quantidadeUtilizadaKg: 0, // NOVO: Preparando para o KG
+          quantidadeUtilizadaKg: 0,
         };
         break;
       }
       case 'FORMULA_EXCLUIDA': {
-        const p = payload as any;
+        const p = event.payload;
         delete state.formulas[p.formulaId];
         break;
       }
       case 'TRATO_DIARIO_REGISTRADO': {
-        const p = payload as any;
+        const p = event.payload;
         const lote = state.lotes[p.loteId];
         const formula = state.formulas[p.formulaId];
-        
+
         if (lote && formula) {
-          // NOVO: Somar a quantidade de KGs física
-          lote.quantidadeRacaoKg = (lote.quantidadeRacaoKg || 0) + p.totalRacaoKg;
-          formula.quantidadeUtilizadaKg = (formula.quantidadeUtilizadaKg || 0) + p.totalRacaoKg;
+          lote.quantidadeRacaoKg += p.totalRacaoKg;
+          formula.quantidadeUtilizadaKg += p.totalRacaoKg;
 
           let custoTrato = 0;
           for (const item of formula.composicao) {
@@ -265,7 +261,7 @@ function computeState(events: AppEvent[]): FarmState {
             if (ing) {
               const kgIngrediente = p.totalRacaoKg * (item.percentual / 100);
               custoTrato += kgIngrediente * ing.ultimoCustoKg;
-              
+
               ing.quantidadeKg -= kgIngrediente;
               ing.valorTotal -= kgIngrediente * ing.ultimoCustoKg;
             }
@@ -275,34 +271,34 @@ function computeState(events: AppEvent[]): FarmState {
         break;
       }
       case 'DESPESA_LOTE_LANCADA': {
-        const p = payload as any;
+        const p = event.payload;
         if (state.lotes[p.loteId]) {
           state.lotes[p.loteId].custoDireto += p.valor;
         }
         break;
       }
       case 'DESPESA_GERAL_LANCADA': {
-        const p = payload as any;
+        const p = event.payload;
         state.despesasGerais += p.valor;
         break;
       }
       case 'VENDA_LOTE_REGISTRADA': {
-        const p = payload as any;
+        const p = event.payload;
         const lote = state.lotes[p.loteId];
         if (lote) {
-          lote.cabecasAtuais -= p.cabecasVendidas;
+          lote.cabecasAtuais = Math.max(0, lote.cabecasAtuais - p.cabecasVendidas);
           lote.cabecasVendidas += p.cabecasVendidas;
-          
+
           const arrobas = p.pesoMedioKg / 30;
           const receita = arrobas * p.precoArroba * p.cabecasVendidas;
           lote.receitaRealizada += receita;
-          
+
           if (lote.cabecasAtuais <= 0) lote.status = 'ENCERRADO';
         }
         break;
       }
       case 'RECEITA_DIVERSA_LANCADA': {
-        const p = payload as any;
+        const p = event.payload;
         if (p.categoria === 'Venda de Insumo' && p.itemEstoqueId && p.quantidade) {
           const ing = state.ingredientes[p.itemEstoqueId];
           if (ing) {
@@ -325,7 +321,7 @@ function computeState(events: AppEvent[]): FarmState {
         break;
       }
       case 'PESAGEM_REGISTRADA': {
-        const p = payload as any;
+        const p = event.payload;
         state.pesagens.push({
           id: event.id,
           loteId: p.loteId,
@@ -337,12 +333,12 @@ function computeState(events: AppEvent[]): FarmState {
         break;
       }
       case 'CONTAS_PAGAR_CRIADA': {
-        const p = payload as any;
+        const p = event.payload;
         state.contasPagar[p.id] = { ...p };
         break;
       }
       case 'CONTAS_PAGAR_PAGA': {
-        const p = payload as any;
+        const p = event.payload;
         if (state.contasPagar[p.id]) {
           state.contasPagar[p.id].status = 'Pago';
           state.contasPagar[p.id].dataPagamento = p.dataPagamento;
@@ -351,17 +347,17 @@ function computeState(events: AppEvent[]): FarmState {
         break;
       }
       case 'CONTAS_PAGAR_CANCELADA': {
-        const p = payload as any;
+        const p = event.payload;
         if (state.contasPagar[p.id]) state.contasPagar[p.id].status = 'Cancelado';
         break;
       }
       case 'CONTAS_RECEBER_CRIADA': {
-        const p = payload as any;
+        const p = event.payload;
         state.contasReceber[p.id] = { ...p };
         break;
       }
       case 'CONTAS_RECEBER_RECEBIDA': {
-        const p = payload as any;
+        const p = event.payload;
         if (state.contasReceber[p.id]) {
           state.contasReceber[p.id].status = 'Recebido';
           state.contasReceber[p.id].dataRecebimento = p.dataRecebimento;
@@ -370,24 +366,28 @@ function computeState(events: AppEvent[]): FarmState {
         break;
       }
       case 'CONTAS_RECEBER_CANCELADA': {
-        const p = payload as any;
+        const p = event.payload;
         if (state.contasReceber[p.id]) state.contasReceber[p.id].status = 'Cancelado';
         break;
       }
       case 'TRANSACAO_CAIXA_CRIADA': {
-        const p = payload as any;
+        const p = event.payload;
         state.cashTransactions.push({ ...p });
         break;
       }
       case 'SIMULACAO_VENDA_SALVA': {
-        const p = payload as any;
+        const p = event.payload;
         state.simulacoesVenda.push({ ...p });
         break;
       }
+      // Casos sem efeito no estado computado
+      case 'RATEIO_ESTRUTURA_GERADO':
+      case 'ALOCACAO_CUSTO_VENDA':
+        break;
     }
   }
 
-  // CÁLCULO MÁGICO DO RATEIO: Pega as despesas gerais e divide pelos lotes ativos
+  // Rateio das despesas gerais proporcional ao número de cabeças ativas
   let totalCabecasAtivas = 0;
   for (const id in state.lotes) {
     if (state.lotes[id].status === 'ATIVO') {
@@ -398,7 +398,6 @@ function computeState(events: AppEvent[]): FarmState {
     const despesaPorCabeca = state.despesasGerais / totalCabecasAtivas;
     for (const id in state.lotes) {
       if (state.lotes[id].status === 'ATIVO') {
-        // Atribui ao lote a fatia correspondente ao seu tamanho
         state.lotes[id].estruturaRateada = state.lotes[id].cabecasAtuais * despesaPorCabeca;
       }
     }

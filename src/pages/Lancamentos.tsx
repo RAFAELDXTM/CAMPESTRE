@@ -31,7 +31,7 @@ export default function Lancamentos() {
   const [valor, setValor] = useState('');
   const [observacao, setObservacao] = useState('');
 
-  const lotesAtivos = (Object.values(state.lotes) as any[]).filter(l => l.status === 'ATIVO');
+  const lotesAtivos = Object.values(state.lotes).filter(l => l.status === 'ATIVO');
 
   // Filtra e organiza o histórico de lançamentos para exibir na tabela
   const historicoLancamentos = events.filter(e => 
@@ -41,24 +41,17 @@ export default function Lancamentos() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const payload = {
-      categoria,
-      valor: parseFloat(valor),
-      data,
-      observacao,
-      ...(tipo === 'lote' ? { loteId } : {})
-    };
-
     if (editingId) {
       // Se estiver no modo edição, apenas atualiza o evento que já existe
-      await updateEvent(editingId, payload);
+      const payload = { categoria, valor: parseFloat(valor), data, observacao };
+      await updateEvent(editingId, tipo === 'lote' ? { ...payload, loteId } : payload);
       setEditingId(null);
     } else {
       // Se for novo, cria um lançamento do zero
       if (tipo === 'lote') {
-        await addEvent('DESPESA_LOTE_LANCADA', payload);
+        await addEvent('DESPESA_LOTE_LANCADA', { loteId, categoria, valor: parseFloat(valor), data, observacao });
       } else {
-        await addEvent('DESPESA_GERAL_LANCADA', payload);
+        await addEvent('DESPESA_GERAL_LANCADA', { categoria, valor: parseFloat(valor), data, observacao });
       }
     }
 
@@ -70,18 +63,22 @@ export default function Lancamentos() {
   };
 
   // Função para puxar os dados do lançamento para o formulário de edição
-  const handleEdit = (ev: any) => {
-    const p = ev.payload;
+  const handleEdit = (ev: typeof historicoLancamentos[number]) => {
     setEditingId(ev.id);
-    setData(p.data);
-    setCategoria(p.categoria);
-    setValor(p.valor.toString());
-    setObservacao(p.observacao || '');
-    
     if (ev.type === 'DESPESA_LOTE_LANCADA') {
+      const p = ev.payload;
+      setData(p.data);
+      setCategoria(p.categoria);
+      setValor(p.valor.toString());
+      setObservacao(p.observacao || '');
       setTipo('lote');
       setLoteId(p.loteId);
     } else {
+      const p = ev.payload;
+      setData(p.data);
+      setCategoria(p.categoria);
+      setValor(p.valor.toString());
+      setObservacao(p.observacao || '');
       setTipo('geral');
       setLoteId('');
     }
@@ -216,7 +213,7 @@ export default function Lancamentos() {
             <div>
               <p className="text-slate-400 text-sm mb-1">Despesas Diretas (Lotes)</p>
               <p className="text-3xl font-light font-mono text-rose-400">
-                R$ {(Object.values(state.lotes) as any[]).reduce((acc, l) => acc + l.custoDireto, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                R$ {Object.values(state.lotes).reduce((acc, l) => acc + l.custoDireto, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
           </div>
@@ -246,14 +243,13 @@ export default function Lancamentos() {
                 </tr>
               ) : (
                 historicoLancamentos.map(ev => {
-                  const p = ev.payload as any;
                   return (
                     <tr key={ev.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-4 text-slate-600">{format(new Date(p.data), 'dd/MM/yyyy')}</td>
+                      <td className="px-6 py-4 text-slate-600">{format(new Date(ev.payload.data), 'dd/MM/yyyy')}</td>
                       <td className="px-6 py-4">
                         {ev.type === 'DESPESA_LOTE_LANCADA' ? (
                           <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-100 text-indigo-800">
-                            Lote: {p.loteId}
+                            Lote: {ev.payload.loteId}
                           </span>
                         ) : (
                           <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-700">
@@ -262,11 +258,11 @@ export default function Lancamentos() {
                         )}
                       </td>
                       <td className="px-6 py-4 font-medium text-slate-900">
-                        {p.categoria}
-                        {p.observacao && <span className="block text-xs font-normal text-slate-400 mt-1">{p.observacao}</span>}
+                        {ev.payload.categoria}
+                        {ev.payload.observacao && <span className="block text-xs font-normal text-slate-400 mt-1">{ev.payload.observacao}</span>}
                       </td>
                       <td className="px-6 py-4 text-right font-mono text-rose-600 font-medium">
-                        R$ {p.valor.toFixed(2)}
+                        R$ {ev.payload.valor.toFixed(2)}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-center gap-2">

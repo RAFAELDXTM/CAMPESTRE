@@ -18,7 +18,7 @@ export default function Vendas() {
   const [formaPagamento, setFormaPagamento] = useState<'a_vista' | 'a_prazo'>('a_vista');
   const [dataRecebimento, setDataRecebimento] = useState(format(new Date(), 'yyyy-MM-dd'));
 
-  const lotesAtivos = (Object.values(state.lotes) as any[]).filter(l => l.status === 'ATIVO');
+  const lotesAtivos = Object.values(state.lotes).filter(l => l.status === 'ATIVO');
   const loteSelecionado = state.lotes[loteId];
 
   const arrobasTotais = pesoMedioKg && cabecasVendidas 
@@ -122,7 +122,7 @@ export default function Vendas() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Pagamento</label>
-                    <select value={formaPagamento} onChange={e => setFormaPagamento(e.target.value as any)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white">
+                    <select value={formaPagamento} onChange={e => setFormaPagamento(e.target.value as 'a_vista' | 'a_prazo')} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white">
                       <option value="a_vista">À Vista</option>
                       <option value="a_prazo">A Prazo</option>
                     </select>

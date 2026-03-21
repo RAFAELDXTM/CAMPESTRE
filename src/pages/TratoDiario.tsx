@@ -24,9 +24,9 @@ export default function TratoDiario() {
   // NOVO: Estado para o filtro da tabela de histórico
   const [filtroLoteId, setFiltroLoteId] = useState('');
 
-  const lotesAtivos = (Object.values(state.lotes) as any[]).filter(l => l.status === 'ATIVO');
-  const todosLotes = (Object.values(state.lotes) as any[]);
-  const formulas = (Object.values(state.formulas) as any[]);
+  const lotesAtivos = Object.values(state.lotes).filter(l => l.status === 'ATIVO');
+  const todosLotes = Object.values(state.lotes);
+  const formulas = Object.values(state.formulas);
   
   const formulasLote = formulas.filter(f => f.loteId === loteId || f.loteId === 'GERAL');
 
@@ -37,12 +37,7 @@ export default function TratoDiario() {
 
   // Histórico de Tratos (Agora com filtro aplicado)
   const historicoTratos = events
-    .filter(e => e.type === 'TRATO_DIARIO_REGISTRADO')
-    .filter(e => {
-      if (!filtroLoteId) return true; // Se não tem filtro, mostra todos
-      const p = e.payload as any;
-      return p.loteId === filtroLoteId; // Se tem filtro, mostra só o lote escolhido
-    })
+    .filter(e => e.type === 'TRATO_DIARIO_REGISTRADO' && (!filtroLoteId || e.payload.loteId === filtroLoteId))
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -332,7 +327,7 @@ export default function TratoDiario() {
                 </tr>
               ) : (
                 historicoTratos.map(ev => {
-                  const p = ev.payload as any;
+                  const p = ev.payload;
                   const formulaNome = state.formulas[p.formulaId]?.nome || 'Fórmula Excluída';
                   return (
                     <tr key={ev.id} className="hover:bg-slate-50 transition-colors">

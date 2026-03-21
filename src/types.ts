@@ -1,10 +1,12 @@
 export type EventType =
   | 'LOTE_CRIADO'
+  | 'LOTE_EXCLUIDO'
   | 'LOTE_SUBDIVIDIDO'
   | 'MORTALIDADE_REGISTRADA'
   | 'TRATO_DIARIO_REGISTRADO'
   | 'COMPRA_INGREDIENTE'
   | 'FORMULA_LOTE_CRIADA'
+  | 'FORMULA_EXCLUIDA'
   | 'DESPESA_LOTE_LANCADA'
   | 'DESPESA_GERAL_LANCADA'
   | 'RATEIO_ESTRUTURA_GERADO'
@@ -29,7 +31,8 @@ export interface BaseEvent {
   timestamp: string;
 }
 
-// Existing payloads...
+// ─── Event Payloads ──────────────────────────────────────────────────────────
+
 export interface LoteCriadoPayload {
   loteId: string;
   dataEntrada: string;
@@ -37,6 +40,10 @@ export interface LoteCriadoPayload {
   pesoMedioEntrada: number;
   precoCompraArroba: number;
   observacao?: string;
+}
+
+export interface LoteExcluidoPayload {
+  loteId: string;
 }
 
 export interface LoteSubdivididoPayload {
@@ -79,6 +86,10 @@ export interface FormulaLoteCriadaPayload {
   composicao: { ingredienteId: string; percentual: number }[];
 }
 
+export interface FormulaExcluidaPayload {
+  formulaId: string;
+}
+
 export interface DespesaLoteLancadaPayload {
   loteId: string;
   categoria: string;
@@ -94,6 +105,11 @@ export interface DespesaGeralLancadaPayload {
   observacao?: string;
 }
 
+export interface RateioEstruturaGeradoPayload {
+  data: string;
+  [key: string]: unknown;
+}
+
 export interface VendaLoteRegistradaPayload {
   loteId: string;
   cabecasVendidas: number;
@@ -101,6 +117,12 @@ export interface VendaLoteRegistradaPayload {
   precoArroba: number;
   data: string;
   observacao?: string;
+}
+
+export interface AlocacaoCustoVendaPayload {
+  loteId: string;
+  valor: number;
+  [key: string]: unknown;
 }
 
 export interface ReceitaDiversaLancadaPayload {
@@ -116,7 +138,6 @@ export interface ReceitaDiversaLancadaPayload {
   quantidade?: number;
 }
 
-// New Payloads
 export interface PesagemRegistradaPayload {
   loteId: string;
   data: string;
@@ -195,30 +216,41 @@ export interface SimulacaoVendaSalvaPayload {
   margem: number;
 }
 
-export type AppEvent = BaseEvent & {
-  payload:
-    | LoteCriadoPayload
-    | LoteSubdivididoPayload
-    | MortalidadeRegistradaPayload
-    | TratoDiarioRegistradoPayload
-    | CompraIngredientePayload
-    | FormulaLoteCriadaPayload
-    | DespesaLoteLancadaPayload
-    | DespesaGeralLancadaPayload
-    | VendaLoteRegistradaPayload
-    | ReceitaDiversaLancadaPayload
-    | PesagemRegistradaPayload
-    | ContasPagarCriadaPayload
-    | ContasPagarPagaPayload
-    | ContasPagarCanceladaPayload
-    | ContasReceberCriadaPayload
-    | ContasReceberRecebidaPayload
-    | ContasReceberCanceladaPayload
-    | TransacaoCaixaCriadaPayload
-    | SimulacaoVendaSalvaPayload;
-};
+// ─── Typed event map ─────────────────────────────────────────────────────────
 
-// Computed State Types
+export interface EventPayloadMap {
+  LOTE_CRIADO: LoteCriadoPayload;
+  LOTE_EXCLUIDO: LoteExcluidoPayload;
+  LOTE_SUBDIVIDIDO: LoteSubdivididoPayload;
+  MORTALIDADE_REGISTRADA: MortalidadeRegistradaPayload;
+  TRATO_DIARIO_REGISTRADO: TratoDiarioRegistradoPayload;
+  COMPRA_INGREDIENTE: CompraIngredientePayload;
+  FORMULA_LOTE_CRIADA: FormulaLoteCriadaPayload;
+  FORMULA_EXCLUIDA: FormulaExcluidaPayload;
+  DESPESA_LOTE_LANCADA: DespesaLoteLancadaPayload;
+  DESPESA_GERAL_LANCADA: DespesaGeralLancadaPayload;
+  RATEIO_ESTRUTURA_GERADO: RateioEstruturaGeradoPayload;
+  VENDA_LOTE_REGISTRADA: VendaLoteRegistradaPayload;
+  ALOCACAO_CUSTO_VENDA: AlocacaoCustoVendaPayload;
+  RECEITA_DIVERSA_LANCADA: ReceitaDiversaLancadaPayload;
+  PESAGEM_REGISTRADA: PesagemRegistradaPayload;
+  CONTAS_PAGAR_CRIADA: ContasPagarCriadaPayload;
+  CONTAS_PAGAR_PAGA: ContasPagarPagaPayload;
+  CONTAS_PAGAR_CANCELADA: ContasPagarCanceladaPayload;
+  CONTAS_RECEBER_CRIADA: ContasReceberCriadaPayload;
+  CONTAS_RECEBER_RECEBIDA: ContasReceberRecebidaPayload;
+  CONTAS_RECEBER_CANCELADA: ContasReceberCanceladaPayload;
+  TRANSACAO_CAIXA_CRIADA: TransacaoCaixaCriadaPayload;
+  SIMULACAO_VENDA_SALVA: SimulacaoVendaSalvaPayload;
+}
+
+// Discriminated union: each variant carries its own payload type.
+export type AppEvent = {
+  [K in EventType]: BaseEvent & { type: K; payload: EventPayloadMap[K] };
+}[EventType];
+
+// ─── Computed State Types ─────────────────────────────────────────────────────
+
 export interface LoteState {
   id: string;
   dataEntrada: string;
@@ -232,7 +264,9 @@ export interface LoteState {
   estruturaRateada: number;
   receitaRealizada: number;
   cabecasVendidas: number;
+  quantidadeRacaoKg: number;
   status: 'ATIVO' | 'ENCERRADO';
+  observacao?: string;
 }
 
 export interface IngredienteState {
@@ -249,6 +283,7 @@ export interface FormulaState {
   nome: string;
   dataInicio: string;
   composicao: { ingredienteId: string; percentual: number }[];
+  quantidadeUtilizadaKg: number;
 }
 
 export interface PesagemState {
