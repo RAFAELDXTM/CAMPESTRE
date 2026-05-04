@@ -31,23 +31,34 @@ export default function Lancamentos() {
   const [valor, setValor] = useState('');
   const [observacao, setObservacao] = useState('');
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const lotesAtivos = Object.values(state.lotes).filter(l => l.status === 'ATIVO');
 
-  // Filtra e organiza o histórico de lançamentos para exibir na tabela
-  const historicoLancamentos = events.filter(e => 
+  const historicoLancamentos = events.filter(e =>
     e.type === 'DESPESA_GERAL_LANCADA' || e.type === 'DESPESA_LOTE_LANCADA'
   ).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
+  const validate = () => {
+    const e: Record<string, string> = {};
+    if (!categoria) e.categoria = 'Selecione a categoria.';
+    const val = parseFloat(valor);
+    if (!valor || isNaN(val) || val <= 0) e.valor = 'Valor deve ser maior que zero.';
+    if (tipo === 'lote' && !loteId) e.loteId = 'Selecione o lote.';
+    return e;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    const errs = validate();
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    setErrors({});
+
     if (editingId) {
-      // Se estiver no modo edição, apenas atualiza o evento que já existe
       const payload = { categoria, valor: parseFloat(valor), data, observacao };
       await updateEvent(editingId, tipo === 'lote' ? { ...payload, loteId } : payload);
       setEditingId(null);
     } else {
-      // Se for novo, cria um lançamento do zero
       if (tipo === 'lote') {
         await addEvent('DESPESA_LOTE_LANCADA', { loteId, categoria, valor: parseFloat(valor), data, observacao });
       } else {
@@ -154,28 +165,31 @@ export default function Lancamentos() {
               {tipo === 'lote' && (
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Lote</label>
-                  <select required value={loteId} onChange={e => setLoteId(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white">
+                  <select value={loteId} onChange={e => { setLoteId(e.target.value); setErrors(p => ({ ...p, loteId: '' })); }} className={`w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white ${errors.loteId ? 'border-red-400 bg-red-50/30' : 'border-slate-300'}`}>
                     <option value="">Selecione o lote...</option>
                     {lotesAtivos.map(l => (
                       <option key={l.id} value={l.id}>{l.id} ({l.cabecasAtuais} cbç)</option>
                     ))}
                   </select>
+                  {errors.loteId && <p className="text-red-600 text-xs mt-1">{errors.loteId}</p>}
                 </div>
               )}
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Categoria</label>
-                <select required value={categoria} onChange={e => setCategoria(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white">
+                <select value={categoria} onChange={e => { setCategoria(e.target.value); setErrors(p => ({ ...p, categoria: '' })); }} className={`w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white ${errors.categoria ? 'border-red-400 bg-red-50/30' : 'border-slate-300'}`}>
                   <option value="">Selecione...</option>
                   {CATEGORIAS_DESPESA.map(c => (
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
+                {errors.categoria && <p className="text-red-600 text-xs mt-1">{errors.categoria}</p>}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Valor (R$)</label>
-                <input required type="number" min="0.01" step="0.01" value={valor} onChange={e => setValor(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white" />
+                <input type="number" min="0.01" step="0.01" value={valor} onChange={e => { setValor(e.target.value); setErrors(p => ({ ...p, valor: '' })); }} className={`w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white ${errors.valor ? 'border-red-400 bg-red-50/30' : 'border-slate-300'}`} />
+                {errors.valor && <p className="text-red-600 text-xs mt-1">{errors.valor}</p>}
               </div>
 
               <div className="md:col-span-2">

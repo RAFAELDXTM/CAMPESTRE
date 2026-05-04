@@ -25,10 +25,52 @@ export default function Lotes() {
   const [mortalidadeLoteId, setMortalidadeLoteId] = useState('');
   const [mortalidadeCabecas, setMortalidadeCabecas] = useState('');
 
+  const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
+  const [subdivideErrors, setSubdivideErrors] = useState<Record<string, string>>({});
+  const [mortalidadeErrors, setMortalidadeErrors] = useState<Record<string, string>>({});
+
+  const validateCreate = () => {
+    const e: Record<string, string> = {};
+    if (!loteId.trim()) e.loteId = 'Informe o ID do lote.';
+    else if (state.lotes[loteId.trim()]) e.loteId = 'Já existe um lote com este ID.';
+    const n = parseInt(cabecas);
+    if (!cabecas || isNaN(n) || n < 1) e.cabecas = 'Informe ao menos 1 cabeça.';
+    const peso = parseFloat(pesoMedio);
+    if (!pesoMedio || isNaN(peso) || peso <= 0) e.pesoMedio = 'Peso deve ser maior que zero.';
+    const preco = parseFloat(precoArroba);
+    if (!precoArroba || isNaN(preco) || preco <= 0) e.precoArroba = 'Preço deve ser maior que zero.';
+    return e;
+  };
+
+  const validateSubdivide = () => {
+    const e: Record<string, string> = {};
+    if (!loteOrigemId) e.loteOrigemId = 'Selecione o lote de origem.';
+    if (!loteNovoId.trim()) e.loteNovoId = 'Informe o ID do novo lote.';
+    else if (state.lotes[loteNovoId.trim()]) e.loteNovoId = 'Já existe um lote com este ID.';
+    const max = state.lotes[loteOrigemId]?.cabecasAtuais ?? 0;
+    const n = parseInt(cabecasTransferidas);
+    if (!cabecasTransferidas || isNaN(n) || n < 1) e.cabecasTransferidas = 'Mínimo de 1 cabeça.';
+    else if (n >= max) e.cabecasTransferidas = `Máximo ${max - 1} (deve restar ao menos 1 no lote origem).`;
+    return e;
+  };
+
+  const validateMortalidade = () => {
+    const e: Record<string, string> = {};
+    if (!mortalidadeLoteId) e.mortalidadeLoteId = 'Selecione o lote.';
+    const max = state.lotes[mortalidadeLoteId]?.cabecasAtuais ?? 0;
+    const n = parseInt(mortalidadeCabecas);
+    if (!mortalidadeCabecas || isNaN(n) || n < 1) e.mortalidadeCabecas = 'Mínimo de 1 cabeça.';
+    else if (n > max) e.mortalidadeCabecas = `Máximo ${max} (total atual do lote).`;
+    return e;
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errs = validateCreate();
+    if (Object.keys(errs).length > 0) { setCreateErrors(errs); return; }
+    setCreateErrors({});
     await addEvent('LOTE_CRIADO', {
-      loteId,
+      loteId: loteId.trim(),
       dataEntrada,
       cabecas: parseInt(cabecas),
       pesoMedioEntrada: parseFloat(pesoMedio),
@@ -41,9 +83,12 @@ export default function Lotes() {
 
   const handleSubdivide = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errs = validateSubdivide();
+    if (Object.keys(errs).length > 0) { setSubdivideErrors(errs); return; }
+    setSubdivideErrors({});
     await addEvent('LOTE_SUBDIVIDIDO', {
       loteOrigemId,
-      loteNovoId,
+      loteNovoId: loteNovoId.trim(),
       cabecasTransferidas: parseInt(cabecasTransferidas),
       data: format(new Date(), 'yyyy-MM-dd'),
       observacao,
@@ -54,6 +99,9 @@ export default function Lotes() {
 
   const handleMortalidade = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errs = validateMortalidade();
+    if (Object.keys(errs).length > 0) { setMortalidadeErrors(errs); return; }
+    setMortalidadeErrors({});
     await addEvent('MORTALIDADE_REGISTRADA', {
       loteId: mortalidadeLoteId,
       cabecas: parseInt(mortalidadeCabecas),
@@ -144,11 +192,27 @@ export default function Lotes() {
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <h2 className="text-lg font-semibold mb-4 text-emerald-800">Criar Novo Lote</h2>
           <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">ID do Lote</label><input required type="text" value={loteId} onChange={e => setLoteId(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" /></div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">ID do Lote</label>
+              <input type="text" value={loteId} onChange={e => { setLoteId(e.target.value); setCreateErrors(p => ({ ...p, loteId: '' })); }} className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 ${createErrors.loteId ? 'border-red-400 bg-red-50/30' : 'border-slate-300'}`} />
+              {createErrors.loteId && <p className="text-red-600 text-xs mt-1">{createErrors.loteId}</p>}
+            </div>
             <div><label className="block text-sm font-medium text-slate-700 mb-1">Data de Entrada</label><input required type="date" value={dataEntrada} onChange={e => setDataEntrada(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" /></div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Número de Cabeças</label><input required type="number" min="1" value={cabecas} onChange={e => setCabecas(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" /></div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Peso Médio (kg)</label><input required type="number" min="0" step="0.1" value={pesoMedio} onChange={e => setPesoMedio(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" /></div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Preço Compra (R$/@)</label><input required type="number" min="0" step="0.01" value={precoArroba} onChange={e => setPrecoArroba(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" /></div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Número de Cabeças</label>
+              <input type="number" min="1" value={cabecas} onChange={e => { setCabecas(e.target.value); setCreateErrors(p => ({ ...p, cabecas: '' })); }} className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 ${createErrors.cabecas ? 'border-red-400 bg-red-50/30' : 'border-slate-300'}`} />
+              {createErrors.cabecas && <p className="text-red-600 text-xs mt-1">{createErrors.cabecas}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Peso Médio (kg)</label>
+              <input type="number" min="0.1" step="0.1" value={pesoMedio} onChange={e => { setPesoMedio(e.target.value); setCreateErrors(p => ({ ...p, pesoMedio: '' })); }} className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 ${createErrors.pesoMedio ? 'border-red-400 bg-red-50/30' : 'border-slate-300'}`} />
+              {createErrors.pesoMedio && <p className="text-red-600 text-xs mt-1">{createErrors.pesoMedio}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Preço Compra (R$/@)</label>
+              <input type="number" min="0.01" step="0.01" value={precoArroba} onChange={e => { setPrecoArroba(e.target.value); setCreateErrors(p => ({ ...p, precoArroba: '' })); }} className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 ${createErrors.precoArroba ? 'border-red-400 bg-red-50/30' : 'border-slate-300'}`} />
+              {createErrors.precoArroba && <p className="text-red-600 text-xs mt-1">{createErrors.precoArroba}</p>}
+            </div>
             <div className="md:col-span-2 lg:col-span-3"><label className="block text-sm font-medium text-slate-700 mb-1">Observação</label><input type="text" value={observacao} onChange={e => setObservacao(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" /></div>
             <div className="md:col-span-2 lg:col-span-3 flex justify-end gap-2 mt-2 pt-4 border-t border-slate-100">
               <button type="button" onClick={() => setIsCreating(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancelar</button>
@@ -164,13 +228,22 @@ export default function Lotes() {
           <form onSubmit={handleSubdivide} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Lote Origem</label>
-              <select required value={loteOrigemId} onChange={e => setLoteOrigemId(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+              <select value={loteOrigemId} onChange={e => { setLoteOrigemId(e.target.value); setSubdivideErrors(p => ({ ...p, loteOrigemId: '' })); }} className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 ${subdivideErrors.loteOrigemId ? 'border-red-400 bg-red-50/30' : 'border-slate-300'}`}>
                 <option value="">Selecione...</option>
                 {lotes.filter(l => l.status === 'ATIVO').map(l => <option key={l.id} value={l.id}>{l.id} ({l.cabecasAtuais} cbç)</option>)}
               </select>
+              {subdivideErrors.loteOrigemId && <p className="text-red-600 text-xs mt-1">{subdivideErrors.loteOrigemId}</p>}
             </div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Novo ID do Lote</label><input required type="text" value={loteNovoId} onChange={e => setLoteNovoId(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" /></div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Cabeças Transferidas</label><input required type="number" min="1" max={state.lotes[loteOrigemId]?.cabecasAtuais || 1} value={cabecasTransferidas} onChange={e => setCabecasTransferidas(e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" /></div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Novo ID do Lote</label>
+              <input type="text" value={loteNovoId} onChange={e => { setLoteNovoId(e.target.value); setSubdivideErrors(p => ({ ...p, loteNovoId: '' })); }} className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 ${subdivideErrors.loteNovoId ? 'border-red-400 bg-red-50/30' : 'border-slate-300'}`} />
+              {subdivideErrors.loteNovoId && <p className="text-red-600 text-xs mt-1">{subdivideErrors.loteNovoId}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Cabeças Transferidas {loteOrigemId && <span className="text-slate-400 font-normal">(máx: {(state.lotes[loteOrigemId]?.cabecasAtuais ?? 1) - 1})</span>}</label>
+              <input type="number" min="1" value={cabecasTransferidas} onChange={e => { setCabecasTransferidas(e.target.value); setSubdivideErrors(p => ({ ...p, cabecasTransferidas: '' })); }} className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 ${subdivideErrors.cabecasTransferidas ? 'border-red-400 bg-red-50/30' : 'border-slate-300'}`} />
+              {subdivideErrors.cabecasTransferidas && <p className="text-red-600 text-xs mt-1">{subdivideErrors.cabecasTransferidas}</p>}
+            </div>
             <div className="md:col-span-2 lg:col-span-3 flex justify-end gap-2 mt-2 pt-4 border-t border-slate-100">
               <button type="button" onClick={() => setIsSubdividing(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Cancelar</button>
               <button type="submit" className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium">Salvar Subdivisão</button>
@@ -185,12 +258,17 @@ export default function Lotes() {
           <form onSubmit={handleMortalidade} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-red-900 mb-1">Lote</label>
-              <select required value={mortalidadeLoteId} onChange={e => setMortalidadeLoteId(e.target.value)} className="w-full p-2 border border-red-200 rounded-lg focus:ring-2 focus:ring-red-500 bg-white">
+              <select value={mortalidadeLoteId} onChange={e => { setMortalidadeLoteId(e.target.value); setMortalidadeErrors(p => ({ ...p, mortalidadeLoteId: '' })); }} className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-red-500 bg-white ${mortalidadeErrors.mortalidadeLoteId ? 'border-red-500' : 'border-red-200'}`}>
                 <option value="">Selecione...</option>
                 {lotes.filter(l => l.status === 'ATIVO').map(l => <option key={l.id} value={l.id}>{l.id} ({l.cabecasAtuais} cbç)</option>)}
               </select>
+              {mortalidadeErrors.mortalidadeLoteId && <p className="text-red-700 text-xs mt-1">{mortalidadeErrors.mortalidadeLoteId}</p>}
             </div>
-            <div><label className="block text-sm font-medium text-red-900 mb-1">Número de Cabeças</label><input required type="number" min="1" max={state.lotes[mortalidadeLoteId]?.cabecasAtuais || 1} value={mortalidadeCabecas} onChange={e => setMortalidadeCabecas(e.target.value)} className="w-full p-2 border border-red-200 rounded-lg focus:ring-2 focus:ring-red-500 bg-white" /></div>
+            <div>
+              <label className="block text-sm font-medium text-red-900 mb-1">Número de Cabeças {mortalidadeLoteId && <span className="font-normal text-red-700/70">(máx: {state.lotes[mortalidadeLoteId]?.cabecasAtuais ?? 0})</span>}</label>
+              <input type="number" min="1" value={mortalidadeCabecas} onChange={e => { setMortalidadeCabecas(e.target.value); setMortalidadeErrors(p => ({ ...p, mortalidadeCabecas: '' })); }} className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-red-500 bg-white ${mortalidadeErrors.mortalidadeCabecas ? 'border-red-500' : 'border-red-200'}`} />
+              {mortalidadeErrors.mortalidadeCabecas && <p className="text-red-700 text-xs mt-1">{mortalidadeErrors.mortalidadeCabecas}</p>}
+            </div>
             <div className="md:col-span-2 flex justify-end gap-2 mt-2 pt-4 border-t border-red-200/50">
               <button type="button" onClick={() => setIsMortalidade(false)} className="px-4 py-2 text-red-700 hover:bg-red-100 rounded-lg font-medium">Cancelar</button>
               <button type="submit" className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium">Registrar Perda</button>

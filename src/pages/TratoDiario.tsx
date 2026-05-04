@@ -21,8 +21,8 @@ export default function TratoDiario() {
   const [totalRacaoKg, setTotalRacaoKg] = useState(''); 
   const [observacao, setObservacao] = useState('');
 
-  // NOVO: Estado para o filtro da tabela de histórico
   const [filtroLoteId, setFiltroLoteId] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const lotesAtivos = Object.values(state.lotes).filter(l => l.status === 'ATIVO');
   const todosLotes = Object.values(state.lotes);
@@ -40,8 +40,20 @@ export default function TratoDiario() {
     .filter(e => e.type === 'TRATO_DIARIO_REGISTRADO' && (!filtroLoteId || e.payload.loteId === filtroLoteId))
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
+  const validate = () => {
+    const e: Record<string, string> = {};
+    if (!loteId) e.loteId = 'Selecione o lote.';
+    if (!formulaId) e.formulaId = 'Selecione a fórmula.';
+    const kg = parseFloat(totalRacaoKg);
+    if (!totalRacaoKg || isNaN(kg) || kg <= 0) e.totalRacaoKg = 'Quantidade deve ser maior que zero.';
+    return e;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errs = validate();
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    setErrors({});
 
     if (editingId) {
       await updateEvent(editingId, {
@@ -188,17 +200,18 @@ export default function TratoDiario() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Lote</label>
-                <select required value={loteId} onChange={e => { setLoteId(e.target.value); setFormulaId(''); }} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white">
+                <select value={loteId} onChange={e => { setLoteId(e.target.value); setFormulaId(''); setErrors(p => ({ ...p, loteId: '' })); }} className={`w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white ${errors.loteId ? 'border-red-400 bg-red-50/30' : 'border-slate-300'}`}>
                   <option value="">Selecione o lote...</option>
                   {lotesAtivos.map(l => (
                     <option key={l.id} value={l.id}>{l.id} ({l.cabecasAtuais} cbç)</option>
                   ))}
                 </select>
+                {errors.loteId && <p className="text-red-600 text-xs mt-1">{errors.loteId}</p>}
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Fórmula</label>
-                <select required value={formulaId} onChange={e => setFormulaId(e.target.value)} disabled={!loteId} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 disabled:bg-slate-50 disabled:text-slate-500 bg-white">
+                <select value={formulaId} onChange={e => { setFormulaId(e.target.value); setErrors(p => ({ ...p, formulaId: '' })); }} disabled={!loteId} className={`w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-emerald-500 disabled:bg-slate-50 disabled:text-slate-500 bg-white ${errors.formulaId ? 'border-red-400 bg-red-50/30' : 'border-slate-300'}`}>
                   <option value="">Selecione a fórmula...</option>
                   {formulasLote.map(f => (
                     <option key={f.id} value={f.id}>
@@ -206,16 +219,18 @@ export default function TratoDiario() {
                     </option>
                   ))}
                 </select>
+                {errors.formulaId && <p className="text-red-600 text-xs mt-1">{errors.formulaId}</p>}
                 {loteId && formulasLote.length === 0 && (
                   <p className="text-xs text-amber-600 mt-1">Nenhuma fórmula cadastrada ou geral disponível.</p>
                 )}
               </div>
-              
+
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   {tipoLancamento === 'unico' ? 'Total de Ração (kg)' : 'Total de Ração POR DIA (kg)'}
                 </label>
-                <input required type="number" min="0.1" step="0.1" value={totalRacaoKg} onChange={e => setTotalRacaoKg(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white" placeholder="Ex: 500" />
+                <input type="number" min="0.1" step="0.1" value={totalRacaoKg} onChange={e => { setTotalRacaoKg(e.target.value); setErrors(p => ({ ...p, totalRacaoKg: '' })); }} className={`w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white ${errors.totalRacaoKg ? 'border-red-400 bg-red-50/30' : 'border-slate-300'}`} placeholder="Ex: 500" />
+                {errors.totalRacaoKg && <p className="text-red-600 text-xs mt-1">{errors.totalRacaoKg}</p>}
                 {tipoLancamento === 'periodo' && (
                   <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
                     * Este valor será multiplicado e lançado para cada dia do período selecionado.

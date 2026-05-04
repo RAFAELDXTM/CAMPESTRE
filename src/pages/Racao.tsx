@@ -13,6 +13,8 @@ export default function Racao() {
   const [valorTotal, setValorTotal] = useState('');
   const [dataCompra, setDataCompra] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [observacaoCompra, setObservacaoCompra] = useState('');
+  const [compraErrors, setCompraErrors] = useState<Record<string, string>>({});
+  const [formulaErrors, setFormulaErrors] = useState<Record<string, string>>({});
 
   const [loteId, setLoteId] = useState('GERAL');
   const [nomeFormula, setNomeFormula] = useState('');
@@ -25,11 +27,19 @@ export default function Racao() {
 
   const handleCompra = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errs: Record<string, string> = {};
+    const qtd = parseFloat(quantidadeKg);
+    const val = parseFloat(valorTotal);
+    if (!quantidadeKg || isNaN(qtd) || qtd <= 0) errs.quantidadeKg = 'Quantidade deve ser maior que zero.';
+    if (!valorTotal || isNaN(val) || val <= 0) errs.valorTotal = 'Valor deve ser maior que zero.';
+    if (!ingredienteId && !ingredienteNome.trim()) errs.ingredienteNome = 'Informe o nome do ingrediente.';
+    if (Object.keys(errs).length > 0) { setCompraErrors(errs); return; }
+    setCompraErrors({});
     await addEvent('COMPRA_INGREDIENTE', {
       ingredienteId: ingredienteId || `ing_${Date.now()}`,
-      ingredienteNome: ingredienteId ? state.ingredientes[ingredienteId].nome : ingredienteNome,
-      quantidadeKg: parseFloat(quantidadeKg),
-      valorTotal: parseFloat(valorTotal),
+      ingredienteNome: ingredienteId ? state.ingredientes[ingredienteId].nome : ingredienteNome.trim(),
+      quantidadeKg: qtd,
+      valorTotal: val,
       data: dataCompra,
       observacao: observacaoCompra,
     });
@@ -38,17 +48,20 @@ export default function Racao() {
 
   const handleFormula = async (e: React.FormEvent) => {
     e.preventDefault();
-    const totalPercentual = composicao.reduce((acc, curr) => acc + curr.percentual, 0);
-    
-    if (Math.abs(totalPercentual - 100) > 0.01) {
-      alert('A soma dos percentuais deve ser exatamente 100%.');
-      return;
+    const errs: Record<string, string> = {};
+    if (!nomeFormula.trim()) errs.nomeFormula = 'Informe o nome da fórmula.';
+    if (composicao.length === 0) errs.composicao = 'Adicione ao menos um ingrediente.';
+    else if (composicao.some(c => !c.ingredienteId)) errs.composicao = 'Selecione o ingrediente de cada linha.';
+    else {
+      const totalPercentual = composicao.reduce((acc, c) => acc + c.percentual, 0);
+      if (Math.abs(totalPercentual - 100) > 0.01) errs.composicao = `Total atual: ${totalPercentual.toFixed(1)}%. A soma deve ser exatamente 100%.`;
     }
-
+    if (Object.keys(errs).length > 0) { setFormulaErrors(errs); return; }
+    setFormulaErrors({});
     await addEvent('FORMULA_LOTE_CRIADA', {
       loteId: loteId === '' ? 'GERAL' : loteId,
       formulaId: `form_${Date.now()}`,
-      nomeFormula,
+      nomeFormula: nomeFormula.trim(),
       dataInicio,
       composicao,
     });
@@ -93,10 +106,22 @@ export default function Racao() {
                 </select>
               </div>
               {!ingredienteId && (
-                <div><label className="block text-sm font-medium text-slate-700 mb-1">Nome do Novo Ingrediente</label><input required type="text" value={ingredienteNome} onChange={e => setIngredienteNome(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white" /></div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Novo Ingrediente</label>
+                  <input type="text" value={ingredienteNome} onChange={e => { setIngredienteNome(e.target.value); setCompraErrors(p => ({ ...p, ingredienteNome: '' })); }} className={`w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white ${compraErrors.ingredienteNome ? 'border-red-400 bg-red-50/30' : 'border-slate-300'}`} />
+                  {compraErrors.ingredienteNome && <p className="text-red-600 text-xs mt-1">{compraErrors.ingredienteNome}</p>}
+                </div>
               )}
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Quantidade (kg)</label><input required type="number" min="0.1" step="0.1" value={quantidadeKg} onChange={e => setQuantidadeKg(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white" /></div>
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Valor Total (R$)</label><input required type="number" min="0.01" step="0.01" value={valorTotal} onChange={e => setValorTotal(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white" /></div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Quantidade (kg)</label>
+                <input type="number" min="0.1" step="0.1" value={quantidadeKg} onChange={e => { setQuantidadeKg(e.target.value); setCompraErrors(p => ({ ...p, quantidadeKg: '' })); }} className={`w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white ${compraErrors.quantidadeKg ? 'border-red-400 bg-red-50/30' : 'border-slate-300'}`} />
+                {compraErrors.quantidadeKg && <p className="text-red-600 text-xs mt-1">{compraErrors.quantidadeKg}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Valor Total (R$)</label>
+                <input type="number" min="0.01" step="0.01" value={valorTotal} onChange={e => { setValorTotal(e.target.value); setCompraErrors(p => ({ ...p, valorTotal: '' })); }} className={`w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white ${compraErrors.valorTotal ? 'border-red-400 bg-red-50/30' : 'border-slate-300'}`} />
+                {compraErrors.valorTotal && <p className="text-red-600 text-xs mt-1">{compraErrors.valorTotal}</p>}
+              </div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Data</label><input required type="date" value={dataCompra} onChange={e => setDataCompra(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white" /></div>
               <button type="submit" className="w-full py-2.5 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors">Registrar Compra</button>
             </form>
@@ -146,7 +171,11 @@ export default function Racao() {
                   {lotesAtivos.map(l => <option key={l.id} value={l.id}>Apenas Lote: {l.id} ({l.cabecasAtuais} cbç)</option>)}
                 </select>
               </div>
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Nome da Fórmula</label><input required type="text" value={nomeFormula} onChange={e => setNomeFormula(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white" /></div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nome da Fórmula</label>
+                <input type="text" value={nomeFormula} onChange={e => { setNomeFormula(e.target.value); setFormulaErrors(p => ({ ...p, nomeFormula: '' })); }} className={`w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white ${formulaErrors.nomeFormula ? 'border-red-400 bg-red-50/30' : 'border-slate-300'}`} />
+                {formulaErrors.nomeFormula && <p className="text-red-600 text-xs mt-1">{formulaErrors.nomeFormula}</p>}
+              </div>
               
               <div className="pt-2 border-t border-slate-200">
                 <label className="block text-sm font-medium text-slate-700 mb-2">Composição (%)</label>
@@ -175,6 +204,7 @@ export default function Racao() {
                     {composicao.reduce((a, c) => a + c.percentual, 0).toFixed(1)}%
                   </span>
                 </div>
+                {formulaErrors.composicao && <p className="text-red-600 text-xs mt-2">{formulaErrors.composicao}</p>}
               </div>
               <button type="submit" className="w-full py-2.5 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors mt-4">Salvar Fórmula</button>
             </form>

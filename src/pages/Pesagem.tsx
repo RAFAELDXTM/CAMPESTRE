@@ -13,16 +13,23 @@ export default function Pesagem() {
   const [observacao, setObservacao] = useState('');
   
   const [selectedLote, setSelectedLote] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const lotesAtivos = Object.values(state.lotes).filter(l => l.status === 'ATIVO');
   const pesagens = state.pesagens.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errs: Record<string, string> = {};
+    if (!loteId) errs.loteId = 'Selecione o lote.';
+    const peso = parseFloat(pesoMedioKg);
+    if (!pesoMedioKg || isNaN(peso) || peso <= 0) errs.pesoMedioKg = 'Peso deve ser maior que zero.';
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    setErrors({});
     await addEvent('PESAGEM_REGISTRADA', {
       loteId,
       data,
-      pesoMedioKg: parseFloat(pesoMedioKg),
+      pesoMedioKg: peso,
       metodo,
       observacao,
     });
@@ -70,17 +77,19 @@ export default function Pesagem() {
               
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Lote</label>
-                <select required value={loteId} onChange={e => setLoteId(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                <select value={loteId} onChange={e => { setLoteId(e.target.value); setErrors(p => ({ ...p, loteId: '' })); }} className={`w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-emerald-500 ${errors.loteId ? 'border-red-400 bg-red-50/30' : 'border-slate-300'}`}>
                   <option value="">Selecione o lote...</option>
                   {lotesAtivos.map(l => (
                     <option key={l.id} value={l.id}>{l.id} ({l.cabecasAtuais} cbç)</option>
                   ))}
                 </select>
+                {errors.loteId && <p className="text-red-600 text-xs mt-1">{errors.loteId}</p>}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Peso Médio (kg)</label>
-                <input required type="number" min="0.1" step="0.1" value={pesoMedioKg} onChange={e => setPesoMedioKg(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500" />
+                <input type="number" min="0.1" step="0.1" value={pesoMedioKg} onChange={e => { setPesoMedioKg(e.target.value); setErrors(p => ({ ...p, pesoMedioKg: '' })); }} className={`w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-emerald-500 ${errors.pesoMedioKg ? 'border-red-400 bg-red-50/30' : 'border-slate-300'}`} />
+                {errors.pesoMedioKg && <p className="text-red-600 text-xs mt-1">{errors.pesoMedioKg}</p>}
               </div>
 
               <div>
